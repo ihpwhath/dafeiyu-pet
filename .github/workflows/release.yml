@@ -40,15 +40,20 @@ jobs:
         shell: pwsh
         run: |
           choco install nsis -y --no-progress
-          pip install pillow
+          # 必须用同一个 python 装 Pillow，否则 build-lite-assets.py 可能落到没有 Pillow 的解释器
+          python -m pip install --upgrade pip pillow
+          python -c "import PIL, sys; print('python', sys.executable); print('pillow', PIL.__version__)"
 
-      - name: 确认 ffmpeg（Lite 素材压缩需要）
+      - name: 确认 ffmpeg 与 libvpx-vp9 编码器
         shell: pwsh
         run: |
           if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
             choco install ffmpeg -y --no-progress
           }
           ffmpeg -version | Select-Object -First 1
+          $enc = ffmpeg -hide_banner -encoders 2>&1 | Select-String -Pattern "libvpx-vp9"
+          if (-not $enc) { Write-Error "ffmpeg 缺少 libvpx-vp9，Lite 素材无法压缩"; exit 1 }
+          $enc
 
       - name: 校验 tag 与版本号
         shell: pwsh
@@ -64,8 +69,19 @@ jobs:
       - name: 构建完整版
         run: npm run build
 
+      # Lite 依赖 ffmpeg 的 VP9 编码，环境差异会导致失败；
+      # 不让它阻断完整版的发布，失败时 Release 里就只挂完整版
       - name: 构建 Lite 版
+        id: lite
+        continue-on-error: true
         run: npm run build:lite
+
+      - name: Lite 构建结果
+        shell: pwsh
+        run: |
+          if ("${{ steps.lite.outcome }}" -ne "success") {
+            Write-Warning "Lite 版构建失败（完整版不受影响，仍会发布）"
+          }
 
       - name: 列出产物
         shell: pwsh
@@ -76,4 +92,4 @@ jobs:
         with:
           files: dist/*-setup.exe
           generate_release_notes: true
-          fail_on_unmatched_files: true
+          fail_on_unmatched_files: false
