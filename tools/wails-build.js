@@ -47,6 +47,9 @@ fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
 // 本机工具链路径（用户级安装）
 const pathParts = (process.env.PATH || '').split(path.delimiter);
 const add = (p) => { if (p && fs.existsSync(p) && !pathParts.includes(p)) pathParts.unshift(p); };
+// 尊重外部传入的 GOPATH（CI 上由 setup-go 设置），否则沿用用户级安装目录
+const gopath = process.env.GOPATH || path.join(process.env.LOCALAPPDATA || os.homedir(), 'gopath');
+add(path.join(gopath, 'bin'));
 add(path.join(process.env.LOCALAPPDATA || '', 'go-toolchain', 'go', 'bin'));
 add(path.join(process.env.LOCALAPPDATA || '', 'gopath', 'bin'));
 add('C:\\Program Files (x86)\\NSIS');
@@ -58,12 +61,13 @@ for (const flag of ['-trimpath', '-buildvcs=false']) {
 const env = {
   ...process.env,
   PATH: pathParts.join(path.delimiter),
-  GOPATH: path.join(process.env.LOCALAPPDATA || os.homedir(), 'gopath'),
-  GOPROXY: 'https://goproxy.cn,direct',
-  GOSUMDB: 'off',
+  GOPATH: gopath,
+  // 本机默认走国内代理；CI 或自定义环境可以通过环境变量覆盖
+  GOPROXY: process.env.GOPROXY || 'https://goproxy.cn,direct',
+  GOSUMDB: process.env.GOSUMDB || 'off',
   GOFLAGS: goFlags.join(' '),
 };
-const wails = path.join(process.env.LOCALAPPDATA || '', 'gopath', 'bin', 'wails.exe');
+const wails = path.join(gopath, 'bin', 'wails.exe');
 const cli = fs.existsSync(wails) ? wails : 'wails';
 
 function restoreConfig() {

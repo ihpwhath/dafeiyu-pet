@@ -54,6 +54,20 @@ const (
 	smtoBlock           = 0x0001
 	smtoAbortIfHung     = 0x0002
 	wmNull              = 0x0000
+
+	// SetWindowCompositionAttribute 的 AccentPolicy（未文档化，Win10 起可用）
+	wcaAccentPolicy        = 19
+	accentDisabled         = 0
+	accentEnableBlurBehind = 3 // Win10 上 Wails 给透明窗口用的就是它（issue #1 的成因）
+	// 2 = ACCENT_ENABLE_TRANSPARENTGRADIENT：名字像"透明"，实测是拿 GradientColor
+	// 铺一层不透明色把桌面遮住，仅作记录，不要用来替代 blur。详见 fixAeroBlur 注释。
+	accentEnableTransparentGradientUnused = 2
+
+	// Win11 22621 起才有 DWMWA_SYSTEMBACKDROP_TYPE；之前的版本 Wails 会退回 Aero 模糊
+	backdropBuildThreshold = 22621
+
+	// 位置驱动的 Region 刷新节流窗口（面板/拖拽等几何突变不受此限制）
+	regionMinInterval = 80 * time.Millisecond
 )
 
 var (
@@ -79,6 +93,7 @@ var (
 	procSetForegroundWindow      = user32.NewProc("SetForegroundWindow")
 	procSetWindowRgn             = user32.NewProc("SetWindowRgn")
 	procGetWindowRgn             = user32.NewProc("GetWindowRgn")
+	procSetWindowCompositionAttr = user32.NewProc("SetWindowCompositionAttribute")
 	procCreateRectRgn            = gdi32.NewProc("CreateRectRgn")
 	procCombineRgn               = gdi32.NewProc("CombineRgn")
 	procDeleteObject             = gdi32.NewProc("DeleteObject")
@@ -159,6 +174,7 @@ func (a *App) SetupWindow() {
 	ex &^= wsExAppWindow
 	ex |= wsExToolWindow | wsExNoActivate | wsExTransparent
 	setExStyle(h, ex)
+	a.fixAeroBlur(h)
 	// 先铺满工作区再显示，避免 800×600 的闪烁
 	if suppress {
 		procSetWindowPos.Call(h, hwndTopmost, uintptr(wa.Left), uintptr(wa.Top), uintptr(wa.Right-wa.Left), uintptr(wa.Bottom-wa.Top), swpNoActivate|swpFrameChanged)
@@ -167,6 +183,103 @@ func (a *App) SetupWindow() {
 	procSetWindowPos.Call(h, hwndTopmost, uintptr(wa.Left), uintptr(wa.Top), uintptr(wa.Right-wa.Left), uintptr(wa.Bottom-wa.Top), swpNoActivate|swpShowWindow|swpFrameChanged)
 	procShowWindow.Call(h, swShowNoActivate)
 	a.updateWindowRegion(true)
+}
+
+// ---------------- 透明窗口的 Aero 模糊修复（Windows 10） ----------------
+
+type accentPolicy struct {
+	AccentState   uint32
+	AccentFlags   uint32
+	GradientColor uint32
+	AnimationID   uint32
+}
+
+type windowCompositionAttribData struct {
+	Attrib uint32
+	PvData unsafe.Pointer
+	CbData uintptr
+}
+
+func windowsBuildNumber() uint32 {
+	if v := windows.RtlGetVersion(); v != nil {
+		return v.BuildNumber
+	}
+	return 0
+}
+
+// applyAccentPolicy 设置窗口的 AccentPolicy（WCA_ACCENT_POLICY）。
+// state 决定合成方式：0 关闭 / 2 透明渐变 / 3 模糊（Aero 毛玻璃）。
+func applyAccentPolicy(h uintptr, state, flags, gradient uint32) bool {
+	if h == 0 || procSetWindowCompositionAttr.Find() != nil {
+		return false
+	}
+	policy := accentPolicy{AccentState: state, AccentFlags: flags, GradientColor: gradient}
+	data := windowCompositionAttribData{
+		Attrib: wcaAccentPolicy,
+		PvData: unsafe.Pointer(&policy),
+		CbData: unsafe.Sizeof(policy),
+	}
+	r, _, _ := procSetWindowCompositionAttr.Call(h, uintptr(unsafe.Pointer(&data)))
+	return r != 0
+}
+
+// Win10（< 22621）没有 DWMWA_SYSTEMBACKDROP_TYPE，Wails 给透明窗口加的是
+// ACCENT_ENABLE_BLURBEHIND：给窗口背后叠一层高斯模糊。桌宠窗口铺满整个工作区，
+// 于是整块桌面都发虚（issue #1）。
+//
+// 修法是直接把 AccentPolicy 清掉（ACCENT_DISABLED）。窗口本身是
+// WS_EX_NOREDIRECTIONBITMAP，没有任何重定向表面，清掉 accent 之后客户区只剩
+// WebView2 合成的内容，桌面原样透出、不模糊——和 Win11 上 BackdropType=None
+// 的效果一致。
+//
+// 踩过的坑（2026-11 实测，勿改成「透明渐变」）：
+// ACCENT_ENABLE_TRANSPARENTGRADIENT(2) 在真机上不是透明，而是拿 GradientColor
+// 铺一层不透明色（实测整片变成 178,200,216 的纯色，把桌面全遮住）；
+// 只有 ACCENT_DISABLED(0) 能保持清晰透出。
+// 个别机器若因此变黑底，在状态文件里写 "blurFix": false 可退回原行为。
+func (a *App) fixAeroBlur(h uintptr) {
+	if h == 0 {
+		return
+	}
+	if windowsBuildNumber() >= backdropBuildThreshold {
+		return // Win11 走 DWM backdrop = None，本来就不模糊
+	}
+	if !a.getBool("blurFix", true) {
+		crashLog("blur-fix", "skipped by state blurFix=false")
+		return
+	}
+	if !applyAccentPolicy(h, accentDisabled, 0, 0) {
+		crashLog("blur-fix", "clear accent failed")
+		return
+	}
+	a.mu.Lock()
+	a.accentFixed = true
+	a.mu.Unlock()
+}
+
+// toggleBlurFix 供托盘菜单调用：在「清掉毛玻璃」和「Wails 默认毛玻璃」之间切换。
+// 万一某台 Win10 机器清掉 accent 后渲染成黑底，用户取消勾选就能立刻退回原样。
+func (a *App) toggleBlurFix() {
+	on := !a.getBool("blurFix", true)
+	a.set("blurFix", on)
+	a.saveState()
+	a.mu.Lock()
+	h := a.hwnd
+	if on {
+		a.accentFixed = true
+	}
+	a.mu.Unlock()
+	if h == 0 {
+		return
+	}
+	if on {
+		applyAccentPolicy(h, accentDisabled, 0, 0)
+		crashLog("blur-fix", "托盘切换：修复已开启（清掉毛玻璃）")
+	} else {
+		// 退回 Wails 在 Win10 上的默认行为
+		applyAccentPolicy(h, accentEnableBlurBehind, 2, 0)
+		crashLog("blur-fix", "托盘切换：修复已关闭（恢复毛玻璃）")
+	}
 }
 
 func getWorkArea() RECT {
@@ -320,6 +433,8 @@ func (a *App) hideWindow() {
 	if h != 0 {
 		procShowWindow.Call(h, swHide)
 	}
+	// 藏起来时把内存还给系统（此时不会有渲染压力，回收代价最低）
+	go a.releaseMemory()
 }
 
 func (a *App) showInactive() {
@@ -344,6 +459,7 @@ func (a *App) showInactive() {
 	a.mu.Unlock()
 	ensureTopmost(h)
 	procShowWindow.Call(h, swShowNoActivate)
+	a.fixAeroBlur(h) // Win10：窗口重新显示后确保毛玻璃层没被带回来
 	a.applyInteractive()
 	a.updateWindowRegion(true)
 }
@@ -402,6 +518,7 @@ func (a *App) DebugState() map[string]interface{} {
 		"pomoRunning": a.pomo.running, "trayReady": a.trayReady,
 		"regionSet": a.regionSet, "regionFull": a.regionFull, "region": a.regionLast,
 		"variant": Variant, "regionBoxes": len(a.regionBoxes), "hitBox": a.hitBox,
+		"build": windowsBuildNumber(), "accentFixed": a.accentFixed,
 	}
 }
 
@@ -418,12 +535,24 @@ func windowRegionIsFull(h uintptr) bool {
 
 func (a *App) updateWindowRegion(force bool) {
 	a.regionMu.Lock()
-	defer a.regionMu.Unlock()
 	if force {
 		a.regionAt = time.Time{}
-	} else if time.Since(a.regionAt) < 60*time.Millisecond {
+	} else if time.Since(a.regionAt) < regionMinInterval {
+		// 节流期间的更新不能直接丢：最后一次上报被丢掉的话，Region 会停在旧位置，
+		// 桌宠边缘就被裁掉一块。这里记一个待处理标记，节流窗口结束后补刷一次。
+		if !a.regionPending {
+			a.regionPending = true
+			time.AfterFunc(regionMinInterval, func() {
+				a.regionMu.Lock()
+				a.regionPending = false
+				a.regionMu.Unlock()
+				a.updateWindowRegion(false)
+			})
+		}
+		a.regionMu.Unlock()
 		return
 	}
+	defer a.regionMu.Unlock()
 	a.mu.Lock()
 	h := a.hwnd
 	wa := a.workArea

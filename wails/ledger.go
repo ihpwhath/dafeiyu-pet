@@ -21,21 +21,21 @@ type apiProvider struct {
 }
 
 var apiProviders = map[string]apiProvider{
-	"deepseek":   {label: "DeepSeek", short: "DeepSeek", env: "DEEPSEEK_API_KEY", fetch: fetchDeepseek},
-	"moonshot":   {label: "Kimi（Moonshot）", short: "Kimi", env: "MOONSHOT_API_KEY", fetch: fetchMoonshot},
+	"deepseek":    {label: "DeepSeek", short: "DeepSeek", env: "DEEPSEEK_API_KEY", fetch: fetchDeepseek},
+	"moonshot":    {label: "Kimi（Moonshot）", short: "Kimi", env: "MOONSHOT_API_KEY", fetch: fetchMoonshot},
 	"siliconflow": {label: "SiliconFlow（硅基流动）", short: "SiliconFlow", env: "SILICONFLOW_API_KEY", fetch: fetchSiliconflow},
-	"doubao":     {label: "豆包（火山方舟）", short: "豆包", env: "VOLC_ACCESSKEY", fetch: fetchDoubao},
-	"openai":     {label: "ChatGPT（OpenAI）", short: "OpenAI", env: "OPENAI_ADMIN_KEY", fetch: fetchOpenai},
-	"claude":     {label: "Claude（Anthropic）", short: "Claude", env: "ANTHROPIC_ADMIN_KEY", fetch: fetchClaude},
+	"doubao":      {label: "豆包（火山方舟）", short: "豆包", env: "VOLC_ACCESSKEY", fetch: fetchDoubao},
+	"openai":      {label: "ChatGPT（OpenAI）", short: "OpenAI", env: "OPENAI_ADMIN_KEY", fetch: fetchOpenai},
+	"claude":      {label: "Claude（Anthropic）", short: "Claude", env: "ANTHROPIC_ADMIN_KEY", fetch: fetchClaude},
 }
 
 var keyHints = map[string]string{
-	"deepseek":   "普通 API Key 即可（sk-…）",
-	"moonshot":   "普通 API Key 即可（sk-…）",
+	"deepseek":    "普通 API Key 即可（sk-…）",
+	"moonshot":    "普通 API Key 即可（sk-…）",
 	"siliconflow": "普通 API Key 即可（sk-…）",
-	"doubao":     "豆包需要填写火山引擎访问密钥对「AK:SK」",
-	"openai":     "需要 OpenAI Admin Key（sk-admin…），普通 Key 无法查询账单",
-	"claude":     "需要 Anthropic Admin Key（sk-ant-admin…）",
+	"doubao":      "豆包需要填写火山引擎访问密钥对「AK:SK」",
+	"openai":      "需要 OpenAI Admin Key（sk-admin…），普通 Key 无法查询账单",
+	"claude":      "需要 Anthropic Admin Key（sk-ant-admin…）",
 }
 
 func (a *App) ledgerSource() string {
@@ -55,7 +55,19 @@ func (a *App) refreshUsage() map[string]interface{} {
 	a.mu.Unlock()
 
 	if _, ok := apiProviders[src]; ok {
-		go a.fetchApiBalanceAsync(src)
+		// 打开账本、改 Key、切来源时都希望看到最新余额：
+		// 缓存超过 45 秒或来源变了就重新拉一次，否则一直显示旧数字。
+		stale := true
+		if cached != nil {
+			at := int64(num(cached["updatedAt"]))
+			same := strv(cached["source"], "") == src
+			if same && at > 0 && time.Since(time.UnixMilli(at)) < 45*time.Second {
+				stale = false
+			}
+		}
+		if stale {
+			go a.fetchApiBalanceAsync(src)
+		}
 		return cached
 	}
 
@@ -73,6 +85,10 @@ func (a *App) refreshUsage() map[string]interface{} {
 	} else {
 		ledger["percent"] = nil
 	}
+	// 没找到任何 Qoder 会话时给出明确原因，否则前端只能显示一片 “—”
+	if !boolv(data["available"], false) {
+		ledger["error"] = "没找到本机 Qoder 会话记录（~/.qoder-cn/projects），可改用 API 余额，或先登录 Qoder 跑一次"
+	}
 	a.mu.Lock()
 	a.ledger = ledger
 	a.mu.Unlock()
@@ -88,18 +104,11 @@ func minF(a, b float64) float64 {
 }
 
 func (a *App) fetchApiBalanceAsync(provider string) {
-	a.mu.Lock()
-	if a.apiFetching {
-		a.mu.Unlock()
+	// 按平台分别去重：以前用一个全局标志，某个平台卡住时别的平台也跟着拿不到数据
+	if !a.beginFetch(provider) {
 		return
 	}
-	a.apiFetching = true
-	a.mu.Unlock()
-	defer func() {
-		a.mu.Lock()
-		a.apiFetching = false
-		a.mu.Unlock()
-	}()
+	defer a.endFetch(provider)
 	def, ok := apiProviders[provider]
 	base := map[string]interface{}{
 		"source": provider, "providerLabel": provider, "providerShort": provider,
@@ -125,9 +134,31 @@ func (a *App) fetchApiBalanceAsync(provider string) {
 	for k, v := range r {
 		base[k] = v
 	}
-	base["available"] = r["error"] == nil
+	_, hasErr := r["error"]
+	base["available"] = !hasErr
 	base["updatedAt"] = nowMillis()
 	a.setLedger(base)
+}
+
+func (a *App) beginFetch(provider string) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.apiFetching == nil {
+		a.apiFetching = map[string]bool{}
+	}
+	if a.apiFetching[provider] {
+		return false
+	}
+	a.apiFetching[provider] = true
+	return true
+}
+
+func (a *App) endFetch(provider string) {
+	a.mu.Lock()
+	if a.apiFetching != nil {
+		delete(a.apiFetching, provider)
+	}
+	a.mu.Unlock()
 }
 
 func (a *App) setLedger(l map[string]interface{}) {
@@ -389,14 +420,19 @@ func fetchDeepseek(key string) map[string]interface{} {
 	if strv(b["currency"], "CNY") == "CNY" {
 		sym = "¥"
 	}
-	return map[string]interface{}{
-		"available": boolv(j["is_available"], true),
+	out := map[string]interface{}{
 		"rows": []map[string]string{
 			{"label": "可用余额", "value": sym + strv(b["total_balance"], "—")},
 			{"label": "赠送余额", "value": sym + strv(b["granted_balance"], "—")},
 			{"label": "充值余额", "value": sym + strv(b["topped_up_balance"], "—")},
 		},
 	}
+	// is_available=false 只表示账户当前不可用（常见于余额为 0），
+	// 不能当成"没拿到数据"——否则三行都正确读到了却显示"还没拿到账单数据"
+	if !boolv(j["is_available"], true) {
+		out["note"] = "已连上 DeepSeek，但账户当前不可用（余额不足或被停用）"
+	}
+	return out
 }
 
 func fetchMoonshot(key string) map[string]interface{} {

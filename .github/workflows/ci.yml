@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    name: Windows 构建与测试
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: wails/go.mod
+          cache-dependency-path: wails/go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 版本号一致性检查
+        shell: pwsh
+        run: |
+          $pkg = (Get-Content package.json | ConvertFrom-Json).version
+          $go = (Select-String -Path wails/main.go -Pattern 'var Version = "([^"]+)"').Matches[0].Groups[1].Value
+          if ($pkg -ne $go) {
+            Write-Error "package.json 版本 $pkg 与 wails/main.go 版本 $go 不一致"
+            exit 1
+          }
+          Write-Host "版本一致：$pkg"
+
+      # wails/frontend/dist 是 go:embed 的依赖，必须先由脚本生成
+      - name: 生成前端资源
+        run: node tools/wails-prepare.js
+
+      - name: go vet
+        working-directory: wails
+        run: go vet ./...
+
+      - name: go test
+        working-directory: wails
+        run: go test ./...
+
+      - name: 编译校验
+        working-directory: wails
+        run: go build -o "${{ runner.temp }}/dafeiyu-pet.exe" .

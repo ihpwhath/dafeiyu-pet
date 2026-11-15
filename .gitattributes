@@ -1,0 +1,15 @@
+# 统一用 LF 落盘，避免 Windows 上 core.autocrlf 把 go.mod / *.go 显示成已修改
+* text=auto eol=lf
+
+# 二进制素材不参与换行转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.webm binary
+*.ico binary
+*.woff2 binary
+*.wav binary
+*.mp3 binary
+*.exe binary
+*.zip binary

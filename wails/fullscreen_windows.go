@@ -19,6 +19,9 @@ const (
 	swpNoMove               = 0x0002
 	fullscreenPollInterval  = 500 * time.Millisecond
 	fullscreenRestoreDelay  = 1200 * time.Millisecond
+	// 连续两次采样都判定为全屏才隐藏（约 1 秒）：单次采样容易被最大化窗口、
+	// 通知弹窗、切换动画误触发，表现为桌宠一闪一闪（issue #2）。
+	fullscreenConfirmTicks = 2
 )
 
 type monitorInfo struct {
@@ -83,8 +86,40 @@ func (a *App) pollFullscreen() {
 		return
 	}
 	h := a.hwnd
-	if active {
+	if !enabled {
+		a.fsHits = 0
 		a.fsClearSince = time.Time{}
+		// 关掉避让时如果正处于「被全屏藏起来」的状态，要立刻把窗口放回来，
+		// 否则设置里关掉开关后桌宠会一直不出现
+		wasFsHidden := a.fsHidden
+		a.fsHidden = false
+		hidden := a.hidden
+		a.mu.Unlock()
+		if wasFsHidden && !hidden {
+			a.restoreAfterFullscreen(h)
+			return
+		}
+		if !hidden {
+			ensureTopmost(h)
+		}
+		return
+	}
+
+	// 面板打开 / 拖拽中：用户正在操作，任何全屏判定都先放一边，避免面板被一起藏掉
+	if a.panelOpen || a.dragging {
+		a.fsHits = 0
+		a.mu.Unlock()
+		return
+	}
+
+	if active {
+		a.fsHits++
+		a.fsClearSince = time.Time{}
+		// 需要连续命中，单次抖动不触发隐藏
+		if a.fsHits < fullscreenConfirmTicks {
+			a.mu.Unlock()
+			return
+		}
 		if !a.hidden && !a.fsHidden {
 			a.fsHidden = true
 			a.mu.Unlock()
@@ -95,15 +130,15 @@ func (a *App) pollFullscreen() {
 		return
 	}
 
+	a.fsHits = 0
 	if a.fsHidden {
-		if enabled {
-			if a.fsClearSince.IsZero() {
-				a.fsClearSince = now
-			}
-			if now.Sub(a.fsClearSince) < fullscreenRestoreDelay {
-				a.mu.Unlock()
-				return
-			}
+		// 退出全屏后要稳定一段时间才回来，否则全屏应用切换时会来回闪
+		if a.fsClearSince.IsZero() {
+			a.fsClearSince = now
+		}
+		if now.Sub(a.fsClearSince) < fullscreenRestoreDelay {
+			a.mu.Unlock()
+			return
 		}
 		a.fsHidden = false
 		a.fsClearSince = time.Time{}
@@ -117,7 +152,7 @@ func (a *App) pollFullscreen() {
 	a.fsClearSince = time.Time{}
 	hidden := a.hidden
 	a.mu.Unlock()
-	if !hidden && enabled {
+	if !hidden {
 		ensureTopmost(h)
 	}
 }
@@ -137,6 +172,7 @@ func (a *App) restoreAfterFullscreen(h uintptr) {
 		uintptr(wa.Right-wa.Left), uintptr(wa.Bottom-wa.Top),
 		swpNoActivate|swpShowWindow|swpFrameChanged)
 	procShowWindow.Call(h, swShowNoActivate)
+	a.fixAeroBlur(h) // Win10：全屏避让回来后再清一次毛玻璃层
 	a.updateWindowRegion(true)
 }
 
@@ -147,22 +183,29 @@ func ensureTopmost(h uintptr) {
 	procSetWindowPos.Call(h, hwndTopmost, 0, 0, 0, 0, swpNoMove|swpNoSize|swpNoActivate)
 }
 
-// 优先使用系统通知状态（全屏视频、D3D 游戏都会命中），再用前台窗口几何兜底。
+// 优先使用系统通知状态，再用前台窗口几何兜底。
+// QUNS_BUSY(2) / QUNS_PRESENTATION_MODE(4) 的命中范围很宽（最大化窗口、专注助手、
+// 演示设置都可能返回），单独采信会误隐藏，必须再让前台窗口几何确认一次；
+// 只有 QUNS_RUNNING_D3D_FULL_SCREEN(3) 是独占全屏，可以直接采信。
 func immersiveFullscreenActive() bool {
-	if queryUserNotificationState() {
-		return true
+	if state, ok := queryUserNotificationState(); ok {
+		switch state {
+		case 3:
+			return true
+		case 2, 4:
+			return foregroundCoversMonitor()
+		}
 	}
 	return foregroundCoversMonitor()
 }
 
-func queryUserNotificationState() bool {
+func queryUserNotificationState() (uint32, bool) {
 	var state uint32
 	r, _, _ := procSHQueryUserNotificationState.Call(uintptr(unsafe.Pointer(&state)))
 	if r != 0 {
-		return false
+		return 0, false
 	}
-	// QUNS_BUSY / QUNS_RUNNING_D3D_FULL_SCREEN
-	return state == 2 || state == 3
+	return state, true
 }
 
 func foregroundCoversMonitor() bool {

@@ -27,6 +27,7 @@ const (
 	lrDefaultSize  = 0x00000040
 	mfString       = 0x00000000
 	mfSeparator    = 0x00000800
+	mfChecked      = 0x00000008
 	tpmRightButton = 0x00000002
 	tpmReturnCmd   = 0x00000100
 	tpmNoNotify    = 0x00000080
@@ -292,6 +293,15 @@ func (t *Tray) showMenu() {
 		procAppendMenu.Call(menu, mfString, uintptr(id), uintptr(unsafe.Pointer(u)))
 	}
 	sep := func() { procAppendMenu.Call(menu, mfSeparator, 0, 0) }
+	// 带勾选的菜单项（用于可以开关的选项）
+	addCheck := func(id int, label string, checked bool) {
+		flags := uintptr(mfString)
+		if checked {
+			flags |= mfChecked
+		}
+		u, _ := syscall.UTF16PtrFromString(label)
+		procAppendMenu.Call(menu, flags, uintptr(id), uintptr(unsafe.Pointer(u)))
+	}
 
 	if visible {
 		add(1, "🙈  藏起桌宠")
@@ -311,7 +321,14 @@ func (t *Tray) showMenu() {
 	sep()
 	add(6, "⚙️  设置")
 	add(7, "📊  看看状态")
-	add(8, "退出")
+	// 只在 Win10（< 22621）出现：那里的「背景发虚」修复靠清 AccentPolicy 实现，
+	// 留一个能当场取消的开关，万一某台机器因此黑屏，用户两下点击就能自救。
+	if windowsBuildNumber() < backdropBuildThreshold {
+		addCheck(8, "🩹  修复 Win10 背景发虚（黑屏就取消勾选）", a.getBool("blurFix", true))
+		add(10, "退出")
+	} else {
+		add(9, "退出")
+	}
 	procSetForeground.Call(t.hwnd)
 	cmd, _, _ := procTrackPopupMenu.Call(menu, tpmReturnCmd|tpmNoNotify|tpmRightButton, uintptr(pt.X), uintptr(pt.Y), 0, t.hwnd, 0)
 	switch cmd {
@@ -338,6 +355,8 @@ func (t *Tray) showMenu() {
 		a.showInactive()
 		a.emit("show-status", nil)
 	case 8:
+		a.toggleBlurFix()
+	case 9, 10:
 		a.Quit()
 	}
 }

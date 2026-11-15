@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	dbg "runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,7 +22,7 @@ import (
 )
 
 // Version 由 tools/wails-build.js 按 package.json 同步；开发期用测试版号，发布时用正式版号。
-var Version = "1.4.7"
+var Version = "1.4.8"
 
 // Variant 由构建脚本用 -ldflags 注入（full / lite）。
 var Variant = "full"
@@ -84,7 +85,7 @@ type App struct {
 
 	words *WordsFilter
 
-	apiFetching  bool
+	apiFetching  map[string]bool // 按平台去重的请求中标记
 	lastUpdate   map[string]interface{}
 	lastUpdateAt time.Time
 	updateBusy   bool
@@ -103,16 +104,20 @@ type App struct {
 
 	fsHidden     bool
 	fsClearSince time.Time
+	fsHits       int // 连续判定为全屏的采样次数（滞回用）
 
-	regionMu    sync.Mutex
-	regionSet   bool
-	regionFull  bool
-	regionLast  RECT
-	regionAt    time.Time
-	regionSig   string
-	regionBoxes []RegionBox
-	hitBox      RegionBox
-	panelHold   time.Time
+	regionMu      sync.Mutex
+	regionSet     bool
+	regionFull    bool
+	regionLast    RECT
+	regionAt      time.Time
+	regionSig     string
+	regionBoxes   []RegionBox
+	hitBox        RegionBox
+	panelHold     time.Time
+	regionPending bool   // 节流窗口内被压下的那次更新
+	lastBoxes     string // 上次上报的命中框 JSON，完全一致时跳过 Region 重算
+	accentFixed   bool   // 是否已做过 Win10 毛玻璃修复
 }
 
 func main() {
@@ -205,8 +210,29 @@ func (a *App) startup(ctx context.Context) {
 				a.refreshUsage()
 			}
 			a.trayRefresh()
+			// 顺带把闲置期间攒下的临时缓冲还回系统（素材服务、视频解码中转）
+			a.releaseMemory()
 		}
 	}()
+	// 启动时首读素材会产生一次性缓冲，密集回收几次把启动尖峰压下去：
+	// 实测启动 10 秒内峰值 ~790MB，回收后回落到 ~60MB
+	go func() {
+		for _, d := range []time.Duration{6 * time.Second, 6 * time.Second, 8 * time.Second} {
+			time.Sleep(d)
+			a.releaseMemory()
+		}
+	}()
+}
+
+// releaseMemory 只在空闲时把堆内存还给系统，避免在拖拽 / 面板交互中触发 STW 造成卡顿。
+func (a *App) releaseMemory() {
+	a.mu.Lock()
+	busy := a.dragging || a.panelOpen || a.quitting
+	a.mu.Unlock()
+	if busy {
+		return
+	}
+	dbg.FreeOSMemory()
 }
 
 func hasArg(want string) bool {
@@ -449,11 +475,21 @@ func (a *App) launchLinkedApp() {
 // ---------------- 设置/统计接口 ----------------
 
 func (a *App) ReportPos(x, y, s float64, boxesJSON string) {
+	a.mu.Lock()
+	// 前端每 50~100ms 上报一次；桌宠静止时位置和命中框完全不变，
+	// 这种上报直接丢掉，省掉每秒二十次 JSON 解析与 SetWindowRgn（GDI 区域反复创建）。
+	same := a.petInit && a.lastBoxes == boxesJSON &&
+		int(a.petX) == int(x) && int(a.petY) == int(y) &&
+		(s <= 0 || a.petScale == clampF(s, 0.6, 1.6))
+	if same {
+		a.mu.Unlock()
+		return
+	}
+	a.lastBoxes = boxesJSON
 	var boxes []RegionBox
 	if boxesJSON != "" {
 		_ = json.Unmarshal([]byte(boxesJSON), &boxes)
 	}
-	a.mu.Lock()
 	a.petX, a.petY = x, y
 	if s > 0 {
 		a.petScale = clampF(s, 0.6, 1.6)
@@ -478,8 +514,9 @@ func (a *App) ReportPos(x, y, s float64, boxesJSON string) {
 	if save {
 		a.saveState()
 	}
-	// 气泡淡入/高度变化都要立刻扩 Region，否则可能闪一下被裁
-	a.updateWindowRegion(true)
+	// 位置驱动的 Region 更新走节流（80ms 一次足够，移动速度远低于这个粒度）；
+	// 面板/拖拽结束等几何突变仍由 SetPanel / SetDragging 以 force 立即刷新。
+	a.updateWindowRegion(false)
 }
 
 func (a *App) SetPanel(open bool) {

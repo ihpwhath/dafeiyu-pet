@@ -33,7 +33,7 @@
 
 备用下载：[蓝奏云网盘](https://wwaql.lanzouu.com/b01i5xmkri)（密码 **5meo**）。
 
-> **版本说明**：当前正式版为 **1.4.7**。
+> **版本说明**：当前正式版为 **1.4.8**。
 
 ### 完整版还是 Lite？
 
@@ -158,6 +158,10 @@ npm run dist-install:lite  # 构建 Lite 版、静默安装到本机并启动
 
 日常调试也可以直接进入 `wails/` 运行 `wails dev`。启动后她会出现在屏幕右下角，托盘图标可以随时叫出或藏起。
 
+带 `--dev-debug` 启动会额外开一个只监听本机 `127.0.0.1:9336` 的调试桥：`/state` 看窗口/Region 状态、`/mem` 看堆与素材统计、`/fullscreen` 看避让判定、`/js` 直接往页面里注入 JS，排查交互问题很方便。`/accent?state=blur|fix|off` 用来手动切换窗口的 AccentPolicy —— 毛玻璃修复只在 Win10 生效，这个端点可以在 Win11 上人为复现 `blur` 再验证 `fix`，方便回归。
+
+仓库自带 GitHub Actions：push / PR 会跑版本号一致性检查、`go vet`、`go test` 与编译校验；打 `v*` tag 会自动构建完整版与 Lite 版并创建 Release（发布前先把 `package.json` 的版本改好，tag 与它不一致会直接失败）。
+
 ## 打包
 
 - 前端由 `tools/wails-prepare.js` 从 `renderer/` + `assets/`（完整版）或 `assets-lite/`（Lite 版）生成：HTML / JS / CSS 改写相对路径，素材装进 `assets.zip`，Wails 通过虚拟文件系统读取并支持视频 Range 请求。完整版保持 store-only 原字节。
@@ -212,6 +216,7 @@ assets/
   logo.png                图标源图
 web/                      官网静态页（部署到 GitHub Pages）
 docs/                     动作生成提示词库 + 通知图标提示词
+.github/workflows/        CI：版本校验 / go vet / go test / 编译；tag 自动出包并发布
 ```
 
 ## 实现要点
@@ -243,6 +248,8 @@ docs/                     动作生成提示词库 + 通知图标提示词
 
 **打不开或只显示白屏？** 先确认系统已安装 Microsoft Edge WebView2 Runtime。安装包会自动下载安装；也可以从微软官网手动安装后重启桌宠。
 
+**Windows 10 上整个桌面变模糊了？** 1.4.8 已修复：旧版在 22621 之前的系统上会退回 Aero 毛玻璃，窗口又铺满工作区，于是整个桌面发虚；新版直接把这一层清掉，桌面保持清晰。万一你的机器出现了黑底，**右键托盘图标 → 取消「修复 Win10 背景发虚」**即可立刻退回旧行为（也可以在状态文件里把 `"blurFix"` 改成 `false`）。
+
 **会弹「未知发布者」吗？** 会。安装包没有代码签名，SmartScreen 可能拦截；点「更多信息」→「仍要运行」。
 
 **完整版和 Lite 能同时装吗？** 能。两版安装目录、状态目录、单实例标识都相互独立，可以同时运行。
@@ -267,6 +274,7 @@ docs/                     动作生成提示词库 + 通知图标提示词
 - v1.4.5：档案馆精选表情与 GPT 娘 73 帧图集动画。
 - v1.4.6：点击表情播放顺序可选。
 - v1.4.7：GPT娘v2（测试）与 dsh-meme 去重图库，表情库增至 143 张。
+- v1.4.8：修复 Win10 桌面背景发虚、桌宠反复闪现、账本读不到三处问题；素材改为零拷贝读取 + 空闲归还内存，常驻内存约 1GB → 约 60MB；新增 GitHub Actions 自动构建与发布。
 
 ## 素材来源与许可
 

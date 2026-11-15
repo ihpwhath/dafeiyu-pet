@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	mrun "runtime"
+	dbg "runtime/debug"
 	"strconv"
 	"sync"
 	"time"
@@ -97,6 +99,47 @@ func startDebugServer(a *App) {
 		a.mu.Unlock()
 		a.restartAfterResume("调试模拟")
 		w.Write([]byte("ok"))
+	})
+	// 只在 --dev-debug 下暴露：手动切换窗口 AccentPolicy，用来在 Win11 上复现 / 验证
+	// Win10 才走到的毛玻璃分支（state=blur 复现，state=fix 走我们自己的修复，state=off 清除）
+	mux.HandleFunc("/accent", func(w http.ResponseWriter, r *http.Request) {
+		a.mu.Lock()
+		h := a.hwnd
+		a.mu.Unlock()
+		var state, flags uint32
+		switch r.URL.Query().Get("state") {
+		case "blur":
+			state, flags = accentEnableBlurBehind, 2
+		case "fix", "off":
+			// fix = 实际发布的修复：清掉 accent（透明渐变会被渲染成不透明纯色，不能用）
+			state = accentDisabled
+		default:
+			http.Error(w, "state=blur|fix|off", 400)
+			return
+		}
+		ok := applyAccentPolicy(h, state, flags, 0)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"ok": ok, "state": state, "hwnd": h})
+	})
+	mux.HandleFunc("/mem", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("gc") == "1" {
+			mrun.GC()
+			dbg.FreeOSMemory()
+		}
+		var ms mrun.MemStats
+		mrun.ReadMemStats(&ms)
+		out := map[string]interface{}{
+			"heapAllocMB": round1(float64(ms.HeapAlloc) / 1048576),
+			"heapSysMB":   round1(float64(ms.HeapSys) / 1048576),
+			"sysMB":       round1(float64(ms.Sys) / 1048576),
+			"numGC":       ms.NumGC,
+			"goroutines":  mrun.NumGoroutine(),
+		}
+		if petAssets != nil {
+			out["assets"] = petAssets.stats()
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(out)
 	})
 	mux.HandleFunc("/quit", func(w http.ResponseWriter, r *http.Request) {
 		a.Quit()

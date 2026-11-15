@@ -28,6 +28,7 @@ var (
 	powerSubscriber   deviceNotifySubscribeParameters
 	powerCallback     uintptr
 	powerRegistration uintptr
+	powerApp          *App // 供休眠/唤醒回调使用，同时保证对象不被 GC 回收
 )
 
 func startPowerMonitor(a *App) {
@@ -35,6 +36,7 @@ func startPowerMonitor(a *App) {
 		return
 	}
 	powerCallback = syscall.NewCallback(powerNotifyCallback)
+	powerApp = a
 	powerSubscriber.Callback = powerCallback
 	powerSubscriber.Context = uintptr(unsafe.Pointer(a))
 	r, _, err := procPowerRegisterSuspendResumeNotification.Call(
@@ -49,7 +51,9 @@ func startPowerMonitor(a *App) {
 
 func powerNotifyCallback(context uintptr, typ uintptr, setting uintptr) uintptr {
 	if typ == pbtApmResumeAutomatic || typ == pbtApmResumeSuspend {
-		if app := (*App)(unsafe.Pointer(context)); app != nil {
+		// 用包级变量而不是把 uintptr 还原成指针：后者会被 go vet 判定为
+		// unsafe.Pointer 误用，且对象可能被 GC 回收（进程内只有单实例，够用）
+		if app := powerApp; app != nil {
 			app.scheduleResumeCheck()
 		}
 	}

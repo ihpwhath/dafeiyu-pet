@@ -394,6 +394,9 @@ function step(dt) {
 
 let lastFrame = performance.now();
 let lastPosReport = 0;
+let lastSentX = -99999;
+let lastSentY = -99999;
+let lastPosSentAt = 0;
 let lastTransform = '';
 
 function frame(now) {
@@ -407,9 +410,18 @@ function frame(now) {
     lastTransform = t;
     petEl.style.transform = t;
   }
-  if (now - lastPosReport > 50) {
+  // 上报粒度 80ms；位置没变化时压到 400ms 保活一次（气泡、倒计时牌等命中框变化靠它补上）。
+  // 以前是雷打不动的 50ms，静止时也在白跑 JSON 序列化 + Go 端 SetWindowRgn。
+  if (now - lastPosReport > 80) {
     lastPosReport = now;
-    api.reportPos({ x: Math.round(P.x), y: Math.round(P.y), s: petScale });
+    const rx = Math.round(P.x);
+    const ry = Math.round(P.y);
+    if (rx !== lastSentX || ry !== lastSentY || now - lastPosSentAt > 400) {
+      lastSentX = rx;
+      lastSentY = ry;
+      lastPosSentAt = now;
+      api.reportPos({ x: rx, y: ry, s: petScale });
+    }
   }
   requestAnimationFrame(frame);
 }
@@ -1340,10 +1352,30 @@ function showStatus() {
 }
 
 // 白饭账本：白饭 = 你被烧掉的 Qoder credits（可在设置里开关）
-function showUsage(ledger) {
+// animate=false 用于后台刷新（异步账单回来时补渲染），不重放数金动画
+function showUsage(ledger, animate = true) {
   if (!S.ledgerOn) return;
   const l = ledger || S.ledger;
   const ds = !!(l && l.source && l.source !== 'qoder');
+  if (!l) {
+    // 异步请求还没回来：明确告诉用户在读，而不是显示一排 “—”
+    clearTimeout(S.bubbleTimer);
+    bubbleText.textContent = '正在读取账单…';
+    uL1.textContent = '今天吃掉';
+    uL2.textContent = '本月吃掉';
+    uL3.textContent = '本次会话';
+    uToday.textContent = '—';
+    uMonth.textContent = '—';
+    uSession.textContent = '—';
+    quotaEl.classList.add('hide');
+    uNote.textContent = '';
+    barsEl.classList.add('hide');
+    usageEl.classList.remove('hide');
+    bubbleEl.classList.add('show');
+    positionBubble();
+    S.bubbleTimer = setTimeout(() => bubbleEl.classList.remove('show'), 9000);
+    return;
+  }
   clearTimeout(S.bubbleTimer);
   const rows = (l && l.rows) || [];
   if (ds) {
@@ -1356,7 +1388,9 @@ function showUsage(ledger) {
       slots[i].textContent = (rows[i] && rows[i].value) || '—';
     }
     quotaEl.classList.add('hide');
-    uNote.textContent = l && l.error ? l.error : `来自 ${l.providerLabel || 'API'} 官方接口`;
+    uNote.textContent = l && l.error
+      ? l.error
+      : (l && l.note) || `来自 ${l.providerLabel || 'API'} 官方接口`;
   } else {
     bubbleText.textContent = l && l.available ? (isDsh() ? '这是你喂给我的白饭' : '这是本月的用量') : '还没找到用量记录…';
     uL1.textContent = '今天吃掉';
@@ -1372,15 +1406,19 @@ function showUsage(ledger) {
     } else {
       quotaEl.classList.add('hide');
     }
-    uNote.textContent = isDsh() ? '白饭 = 你的 Qoder credits' : '这是你的 Qoder 用量';
+    uNote.textContent = l && l.error
+      ? l.error
+      : (isDsh() ? '白饭 = 你的 Qoder credits' : '这是你的 Qoder 用量');
   }
   barsEl.classList.add('hide');
   usageEl.classList.remove('hide');
   bubbleEl.classList.add('show');
   positionBubble();
   S.bubbleTimer = setTimeout(() => bubbleEl.classList.remove('show'), 9000);
-  const tier = balanceTierPools();
-  playOnce(tier.length ? tier : ANIM.money);
+  if (animate) {
+    const tier = balanceTierPools();
+    playOnce(tier.length ? tier : ANIM.money);
+  }
 }
 
 function creditsLine() {
@@ -2786,6 +2824,11 @@ api.on('words-updated', (w) => {
 
 api.on('usage', (l) => {
   S.ledger = l;
+  // 账本气泡开着的时候，异步结果回来必须就地重渲染：
+  // 以前只写进 S.ledger，用户看到的是打开瞬间那份空数据（issue #3）
+  if (l && !usageEl.classList.contains('hide') && bubbleEl.classList.contains('show')) {
+    showUsage(l, false);
+  }
 });
 
 api.on('show-usage', (l) => {
