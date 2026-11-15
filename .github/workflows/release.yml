@@ -14,6 +14,10 @@ jobs:
   release:
     name: 构建并发布
     runs-on: windows-latest
+    env:
+      # 素材脚本会打印中文文件名，CI 的 Python 默认 cp1252 会抛 UnicodeEncodeError
+      PYTHONIOENCODING: utf-8
+      PYTHONUTF8: '1'
     steps:
       - uses: actions/checkout@v4
 

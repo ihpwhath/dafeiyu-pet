@@ -66,6 +66,9 @@ const env = {
   GOPROXY: process.env.GOPROXY || 'https://goproxy.cn,direct',
   GOSUMDB: process.env.GOSUMDB || 'off',
   GOFLAGS: goFlags.join(' '),
+  // 素材脚本要打印中文文件名；CI 的 Python 默认 cp1252 会直接 UnicodeEncodeError
+  PYTHONIOENCODING: 'utf-8',
+  PYTHONUTF8: '1',
 };
 const wails = path.join(gopath, 'bin', 'wails.exe');
 const cli = fs.existsSync(wails) ? wails : 'wails';

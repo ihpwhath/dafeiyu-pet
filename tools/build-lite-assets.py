@@ -12,6 +12,15 @@ import os
 import shutil
 import subprocess
 import sys
+
+# 素材里有大量中文文件名，脚本又要逐条打印。CI（尤其是 GitHub Actions 的 Windows runner）
+# 的 stdout 默认是 cp1252，打印中文会直接 UnicodeEncodeError 中断整个构建。
+# 统一改成 UTF-8 + 不可编码字符替换，保证任何终端环境下都不会因为日志挂掉。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:  # 老版本 Python 或已重定向的流，忽略
+        pass
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
