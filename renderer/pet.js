@@ -1257,14 +1257,16 @@ const STORE_RANK = new Map(STORE_ORDER.map((id, i) => [id, i]));
 // 所以所有目录里的包都把封面预置在 assets/thumbs/<id>.webp。
 const storeThumb = (id) => '../assets/thumbs/' + id + '.webp';
 
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 function storeCard(opts) {
   const cover = opts.cover
-    ? `<img class="store-cover" src="${opts.cover}" alt="">`
-    : `<div class="store-cover store-cover-ph">${String(opts.name || '?').trim().charAt(0)}</div>`;
+    ? `<img class="store-cover" src="${esc(opts.cover)}" alt="">`
+    : `<div class="store-cover store-cover-ph">${esc(String(opts.name || '?').trim().charAt(0))}</div>`;
   const pct = Math.round((dlProgress[opts.id] || 0) * 100);
   const bar = pct > 0 && pct < 100 ? `<div class="store-progress"><i style="width:${pct}%"></i></div>` : '';
-  return '<div class="store-item" title="' + (opts.tip || '') + '">' + cover +
-    '<div class="store-meta"><b>' + opts.name + '</b><span>' + opts.sub + '</span>' + bar + '</div>' +
+  return '<div class="store-item" title="' + esc(opts.tip || '') + '">' + cover +
+    '<div class="store-meta"><b>' + esc(opts.name) + '</b><span>' + esc(opts.sub) + '</span>' + bar + '</div>' +
     '<div class="store-actions">' + opts.actions + '</div></div>';
 }
 
@@ -1290,8 +1292,8 @@ function renderStore() {
     add(id, storeCard({
       id, name: shortPackName(p.name), cover: p.cover, tip: (p.license || '') + ' · ' + p.name,
       sub: p.actions.length + ' 动作 · ' + fmtMB(p.bytes),
-      actions: '<button disabled title="动作已并入 ' + (CHARS[target] ? CHARS[target].label : target) + '">已并入</button>' +
-               '<button class="danger" data-del="' + id + '">卸载</button>',
+      actions: '<button disabled title="动作已并入 ' + esc(CHARS[target] ? CHARS[target].label : target) + '">已并入</button>' +
+               '<button class="danger" data-del="' + esc(id) + '">卸载</button>',
     }));
   };
 
@@ -1299,9 +1301,9 @@ function renderStore() {
     add(b.storeKey || b.id, storeCard({
       id: b.id, name: b.label, cover: b.cover, tip: '内置形象',
       sub: b.sub,
-      actions: '<button data-char="' + b.id + '"' + (S.character === b.id ? ' class="on"' : '') + '>' +
+      actions: '<button data-char="' + esc(b.id) + '"' + (S.character === b.id ? ' class="on"' : '') + '>' +
                (S.character === b.id ? '使用中' : '使用') + '</button>' +
-               (b.del ? '<button class="danger" data-del="' + b.del + '">卸载</button>' : ''),
+               (b.del ? '<button class="danger" data-del="' + esc(b.del) + '">卸载</button>' : ''),
     }));
     if (b.id === 'v1') plusRow('dsh1');   // 扩充包紧跟在大肥鱼下面
   }
@@ -1315,22 +1317,22 @@ function renderStore() {
     const codeKey = Object.keys(CODE_CHAR_PACKS).find((k) => CODE_CHAR_PACKS[k] === id);
     const using = codeKey ? S.character === codeKey : S.character === 'pack:' + id;
     const acts = plusFor
-      ? '<button disabled title="动作已并入 ' + (CHARS[plusFor] ? CHARS[plusFor].label : plusFor) + '">已并入</button>'
-      : '<button data-char="' + (codeKey || 'pack:' + id) + '"' + (using ? ' class="on"' : '') + '>' +
+      ? '<button disabled title="动作已并入 ' + esc(CHARS[plusFor] ? CHARS[plusFor].label : plusFor) + '">已并入</button>'
+      : '<button data-char="' + esc(codeKey || 'pack:' + id) + '"' + (using ? ' class="on"' : '') + '>' +
         (using ? '使用中' : '使用') + '</button>';
     const sub = codeKey
       ? (p.actions.length ? p.actions.length + ' 个素材' : '素材包') + ' · ' + fmtMB(p.bytes)
       : p.actions.length + ' 个动作 · ' + fmtMB(p.bytes);
     add(id, storeCard({
       id, name: shortPackName(p.name), cover: p.cover, tip: (p.license || '') + ' · ' + p.name, sub,
-      actions: acts + '<button class="danger" data-del="' + id + '">卸载</button>',
+      actions: acts + '<button class="danger" data-del="' + esc(id) + '">卸载</button>',
     }));
   }
 
   for (const c of CATALOG) {
     if (PACKS[c.id] || RETIRED_PACKS.has(c.id)) continue;
     const pending = dlProgress[c.id] !== undefined;
-    const btn = pending ? '<button disabled>下载中…</button>' : '<button data-download="' + c.id + '">下载</button>';
+    const btn = pending ? '<button disabled>下载中…</button>' : '<button data-download="' + esc(c.id) + '">下载</button>';
     add(c.id, storeCard({
       id: c.id, name: shortPackName(c.name),
       cover: STORE_RANK.has(c.id) && c.id !== 'v1' ? storeThumb(c.id) : '',
@@ -1349,7 +1351,7 @@ function renderStore() {
   const parts = rows.map((r) => r.html);
 
   if (!parts.length) {
-    parts.push('<div class="store-empty">' + (catalogErr ? '暂时连不上形象列表（' + catalogErr + '）' : '还没有可用的形象包') + '</div>');
+    parts.push('<div class="store-empty">' + (catalogErr ? '暂时连不上形象列表（' + esc(catalogErr) + '）' : '还没有可用的形象包') + '</div>');
   }
   parts.push('<div class="set-row store-import">' +
     '<button data-import="1">从本地文件导入（.zip）…</button>' +
@@ -2588,6 +2590,10 @@ async function pickLinkedApp() {
 
 // 切换形象：video 显示 <video>，立绘显示 <img>，图集显示 <canvas>；重置动画记录并重建动作面板
 function applyCharacter(id, save) {
+  // 图集/立绘型包的素材目录与代码里的形象 key 不同（gptv1 -> gpt），
+  // 下载完成或旧状态里出现 pack:gptv1 时统一映射回代码 key，避免用视频播图集。
+  const codeKey = Object.keys(CODE_CHAR_PACKS).find((k) => 'pack:' + CODE_CHAR_PACKS[k] === id);
+  if (codeKey && CHARS[codeKey]) id = codeKey;
   S.character = CHARS[id] ? id : 'v1';
   const kind = charNow().kind;
   applyAnimTables(charNow(), S.character);

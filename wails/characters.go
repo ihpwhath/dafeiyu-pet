@@ -173,6 +173,8 @@ func (a *App) ListInstalledCharacters() []InstalledCharacter {
 	return out
 }
 
+var errPackBusy = errors.New("形象包正在使用，请先切换到其他形象再更新")
+
 // InstallCharacter 下载 zip 并解压到 characters/<id>/。
 // url 由前端从远程索引里取，下载前会在直连与内置加速镜像中探测最快线路。
 func (a *App) InstallCharacter(id, url string) error {
@@ -183,6 +185,9 @@ func (a *App) InstallCharacter(id, url string) error {
 	var lastErr error
 	for _, prefix := range rankMirrors(canonical) {
 		if err := a.downloadAndInstall(id, prefix+canonical); err != nil {
+			if errors.Is(err, errPackBusy) {
+				return err
+			}
 			lastErr = err
 			continue
 		}
@@ -543,6 +548,7 @@ func (a *App) extractPack(id, zipPath, prefix string) error {
 			return fmt.Errorf("解压后体积超过 %d MB", maxPackBytes>>20)
 		}
 	}
+	var written uint64
 	for _, zf := range zr.File {
 		name := path.Clean(strings.ReplaceAll(zf.Name, "\\", "/"))
 		if prefix != "" {
@@ -574,11 +580,15 @@ func (a *App) extractPack(id, zipPath, prefix string) error {
 			rc.Close()
 			return err
 		}
-		_, cerr := io.Copy(out, rc)
+		n, cerr := io.Copy(out, io.LimitReader(rc, int64(uint64(maxPackBytes)-written)+1))
+		written += uint64(n)
 		out.Close()
 		rc.Close()
 		if cerr != nil {
 			return cerr
+		}
+		if written > uint64(maxPackBytes) {
+			return fmt.Errorf("解压后体积超过 %d MB", maxPackBytes>>20)
 		}
 	}
 	m, err := a.loadInstalledCharacterIn(tmpDir)
@@ -600,7 +610,7 @@ func (a *App) extractPack(id, zipPath, prefix string) error {
 	os.RemoveAll(final + ".old")
 	if _, err := os.Stat(final); err == nil {
 		if err := os.Rename(final, final+".old"); err != nil {
-			return err
+			return fmt.Errorf("%w：%v", errPackBusy, err)
 		}
 	}
 	if err := os.Rename(tmpDir, final); err != nil {

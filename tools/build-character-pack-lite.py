@@ -162,7 +162,7 @@ def write_catalog(out_dir, zips):
         p["liteZipBytes"] = os.path.getsize(zp)
         p["liteUrl"] = PACK_RAW + asset
         # 顺手校正完整包的真实大小和动作数（旧 catalog 里有明显过期的值）
-        full = os.path.join(DEFAULT_IN, name)
+        full = os.path.join(DEFAULT_IN, str(p.get("id")) + ".zip")
         if os.path.exists(full):
             p["zipBytes"] = os.path.getsize(full)
             try:
