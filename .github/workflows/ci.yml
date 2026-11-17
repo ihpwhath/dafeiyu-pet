@@ -25,8 +25,8 @@ jobs:
       - name: 版本号一致性检查
         shell: pwsh
         run: |
-          $pkg = (Get-Content package.json | ConvertFrom-Json).version
-          $lock = (Get-Content package-lock.json | ConvertFrom-Json).version
+          $pkg = node -p "require('./package.json').version"
+          $lock = node -p "require('./package-lock.json').version"
           $go = (Select-String -Path wails/main.go -Pattern 'var Version = "([^"]+)"').Matches[0].Groups[1].Value
           if ($pkg -ne $go -or $pkg -ne $lock) {
             Write-Error "版本不一致：package.json=$pkg package-lock.json=$lock wails/main.go=$go"
