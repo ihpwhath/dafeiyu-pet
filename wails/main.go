@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	dbg "runtime/debug"
 	"strconv"
 	"strings"
@@ -22,7 +23,7 @@ import (
 )
 
 // Version 由 tools/wails-build.js 按 package.json 同步；开发期用测试版号，发布时用正式版号。
-var Version = "1.4.8"
+var Version = "1.5.0-beta1"
 
 // Variant 由构建脚本用 -ldflags 注入（full / lite）。
 var Variant = "full"
@@ -145,6 +146,13 @@ func main() {
 			crashLog("assets-zip", err.Error())
 		}
 	}
+	// 已下载的形象包放在用户目录，叠加到内嵌资源之上（characters/<id>/... 优先读磁盘）
+	var assetFS fs.FS
+	if petAssets != nil {
+		cfg := app.userConfigDir()
+		_ = os.MkdirAll(filepath.Join(cfg, "characters"), 0o755)
+		assetFS = &charactersFS{primary: petAssets, overlay: os.DirFS(cfg)}
+	}
 	err = wails.Run(&options.App{
 		Title:            appName(),
 		Width:            800,
@@ -154,7 +162,7 @@ func main() {
 		AlwaysOnTop:      true,
 		DisableResize:    true,
 		BackgroundColour: &options.RGBA{R: 0, G: 0, B: 0, A: 0},
-		AssetServer:      &assetserver.Options{Assets: petAssets},
+		AssetServer:      &assetserver.Options{Assets: assetFS},
 		OnStartup:        app.startup,
 		OnDomReady:       app.domReady,
 		OnBeforeClose:    app.beforeClose,

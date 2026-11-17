@@ -38,6 +38,7 @@
             <div id="tilt">
               <div id="squash">
                 <video id="petVid" autoplay muted loop playsinline></video>
+                <canvas id="petSnap" class="hide" width="640" height="360"></canvas>
                 <img id="petImg" class="hide" draggable="false" alt="">
               </div>
             </div>
@@ -92,25 +93,8 @@
       <div class="set-page hide" data-page="look">
         <div class="set-sec">
           <div class="set-label">桌宠形象</div>
-          <div id="set-chars">
-            <div class="set-row">
-              <button data-char="v1">大肥鱼v1</button>
-              <button data-char="v2">大肥鱼v2</button>
-              <button data-char="v3">大肥鱼v3</button>
-            </div>
-            <div class="set-row">
-              <button data-char="v4">大肥鱼v4</button>
-              <button data-char="v5">大肥鱼v5</button>
-              <button data-char="v6">大肥鱼v6</button>
-            </div>
-            <div class="set-row">
-              <button data-char="gpt">GPT 娘</button>
-            </div>
-            <div class="set-row">
-              <button data-char="gpt2">GPT娘v2（测试）</button>
-            </div>
-          </div>
-          <div class="set-hint">v1 是逐帧动画版；v2~v6 是表情立绘（各套画风/动作不同）；GPT 娘使用 73 帧透明图集，支持待机、奔跑、挥手、工作、庆祝和 16 方向视线（不带白饭梗与表情包）；GPT娘v2（测试）是成人设定表情卡，提供 8 种表情。</div>
+          <div id="set-store"><div class="set-hint">正在读取…</div></div>
+          <div class="set-hint">「下载」从 GitHub（加速链接）拉取角色包并自动安装；「卸载」删除本地文件。大肥鱼v1 装上「蓝毛小女仆」扩充包后动作会扩充到 268 个。</div>
         </div>
         <div class="set-sec">
           <div class="set-label">音效</div>

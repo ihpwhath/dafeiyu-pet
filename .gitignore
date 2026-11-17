@@ -29,3 +29,8 @@ wails/frontend/wailsjs/
 
 # Lite 生成素材
 assets-lite/
+
+# 角色包构建产物（体积大，不进仓库）
+characters-build/
+characters-build-pub/
+wails/build/

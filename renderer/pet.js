@@ -1,3 +1,13 @@
+// 启动第一件事：显式加载软糖体。CSS @font-face 的字体只有被文字用到才会开始下载，
+// 而首条气泡出现前页面上几乎没有文字 —— 不主动 load 的话，document.fonts.status 会
+// 误报 loaded，气泡先用回退字体排版显示，字体到位后字形变宽折行，气泡就「长高」。
+if (document.fonts && document.fonts.load) {
+  try {
+    document.fonts.load('16px "ShouShou"', '你好呀蓝色大肥鱼0123456789');
+    document.fonts.load('700 16px "ShouShou"', '你好呀蓝色大肥鱼0123456789');
+  } catch (e) { /* 字体加载失败不阻塞 */ }
+}
+
 'use strict';
 
 const stage = document.getElementById('stage');
@@ -5,6 +15,23 @@ const petEl = document.getElementById('pet');
 const hitEl = document.getElementById('hit');
 const leanEl = document.getElementById('lean');
 const vidEl = document.getElementById('petVid');
+const petSnap = document.getElementById('petSnap');
+const snapCtx = petSnap ? petSnap.getContext('2d') : null;
+
+// 切换动作前把当前帧拍下来盖在原位，新视频开始播了再撤掉，形象就不会闪没
+function snapshotFrame() {
+  if (!petSnap || vidEl.readyState < 2 || !vidEl.videoWidth) return;
+  if (petSnap.width !== vidEl.videoWidth) {
+    petSnap.width = vidEl.videoWidth;
+    petSnap.height = vidEl.videoHeight;
+  }
+  snapCtx.clearRect(0, 0, petSnap.width, petSnap.height);
+  snapCtx.drawImage(vidEl, 0, 0, petSnap.width, petSnap.height);
+  petSnap.classList.remove('hide');
+}
+function hideSnap() {
+  if (petSnap) petSnap.classList.add('hide');
+}
 const petImgEl = document.getElementById('petImg');
 const petSpriteEl = document.getElementById('petSprite');
 const memeEl = document.getElementById('bubble-meme');
@@ -37,7 +64,6 @@ const scaleEl = document.getElementById('scale');
 const settingsEl = document.getElementById('settings');
 const setSizes = document.getElementById('set-sizes');
 const setDocks = document.getElementById('set-docks');
-const setChars = document.getElementById('set-chars');
 const setSizeVal = document.getElementById('set-size-val');
 const setFontVal = document.getElementById('set-font-val');
 const setSfx = document.getElementById('set-sfx');
@@ -240,7 +266,23 @@ const P = {
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const usingCustomQuips = () => S.useCustomQuips && S.customQuips.length > 0;
-const quipsPool = () => (usingCustomQuips() ? S.customQuips : S.character === 'gpt' || S.character === 'gpt2' ? GPT_QUIPS : QUIPS);
+// 形象包是别的角色，不该说大肥鱼或 GPT 娘的台词，用一组中性台词
+const NEUTRAL_QUIPS = [
+  '在的，需要我做什么随时说。',
+  '今天也一起加油吧。',
+  '要不要起来活动一下？',
+  '记得喝水。',
+  '坐久了，肩膀放松一下。',
+  '我一直在这儿陪着你。',
+  '有进展吗？慢慢来，不着急。',
+  '累了就歇一会儿。',
+];
+const quipsPool = () => {
+  if (usingCustomQuips()) return S.customQuips;
+  if (S.character === 'gpt') return GPT_QUIPS;
+  if (String(S.character).startsWith('pack:')) return NEUTRAL_QUIPS;
+  return QUIPS;
+};
 
 // ---------------------------------------------------------------- 预览兜底
 
@@ -449,14 +491,33 @@ function positionBubble() {
   const h = Math.max(bubbleEl.offsetHeight, 240);
   bubbleEl.classList.toggle('down', P.y + (128 - h) * petScale < 6);
 
-  const bw = bubbleEl.offsetWidth || 200;
-  const cx = P.x + PET.cx * petScale;
-  const half = (bw / 2) * petScale + 8;
-  let shift = 0;
-  if (cx + half > innerWidth) shift = innerWidth - (cx + half);
-  else if (cx - half < 0) shift = -(cx - half);
-  // margin 在 #scale 的缩放坐标系里，需要除以 scale 换算
-  bubbleEl.style.marginLeft = shift ? `${(shift / petScale).toFixed(1)}px` : '';
+  // 用实测的屏幕坐标校正：气泡所在的 #scale 缩放和 petScale 不是同一个值，
+  // 按比例换算会算错。关键：水平、垂直的偏移都要「先归零 → 量测 → 按实际缩放换算」，
+  // 否则会在「已挪好」和「没挪」两个状态之间反复横跳——用户看到的就是
+  // 「先弹出一半（被窗口上沿裁掉）→ 又变成完整」。
+  // 迭代收敛式夹取：不做任何「布局坐标↔屏幕坐标」换算（那套换算在 fs/petScale
+  // 叠加时永远算不准），而是量一次挪一点、再量再挪，2~3 次后必然收敛到屏幕内。
+  // 每轮：归零 → 量 → 计算本轮需要的屏幕像素位移 → 按上一轮的经验比例折算成本轮增量。
+  let accX = 0, accY = 0, prevScale = 0;
+  for (let k = 0; k < 3; k++) {
+    bubbleEl.style.marginLeft = accX ? `${accX.toFixed(1)}px` : '';
+    bubbleEl.style.setProperty('--bubble-shift', accY ? `${accY.toFixed(1)}px` : '');
+    const r = bubbleEl.getBoundingClientRect();
+    if (!r.width) break;
+    const scale = bubbleEl.offsetWidth ? r.width / bubbleEl.offsetWidth : 1;
+    let need = 0;
+    if (r.left < 4) need = 4 - r.left;
+    else if (r.right > innerWidth - 4) need = (innerWidth - 4) - r.right;
+    if (k === 0) prevScale = scale;
+    if (Math.abs(need) < 2) break;
+    // 用「上一轮测得的实际缩放」把本轮屏幕像素位移折算成布局增量
+    const ratio = prevScale || scale || 1;
+    accX += need / ratio;
+    const upNeed = Math.max(0, 4 - r.top) / ratio;
+    accY += upNeed;
+  }
+  bubbleEl.style.marginLeft = accX ? `${accX.toFixed(1)}px` : '';
+  bubbleEl.style.setProperty('--bubble-shift', accY ? `${accY.toFixed(1)}px` : '');
 }
 
 // 右下角停靠点：直接贴右下角；气泡若会伸出屏幕，positionBubble 会把气泡往回收，
@@ -470,7 +531,8 @@ function cornerSpot(b) {
 // ---------------------------------------------------------------- 动画状态机
 // 素材来自 dsh-pet（MIT）：640×360 透明 WebM，角色居中
 const ANIM_DIR = '../assets/anims/';
-const ANIM = {
+// 内置（大肥鱼 v1）的语义动作表；形象包会在 applyCharacter 里换成自己的表
+const ANIM_BUILTIN = {
   idle: ['待机呼吸休闲'],
   move: ['原地漂浮踏步', '螃蟹走路', '原地左转奔跑'],
   drag: ['被鼠标拖拽悬空反馈'],
@@ -482,6 +544,17 @@ const ANIM = {
   work: ['写代码', '工作状态-思考冒泡', '工作状态-忙碌点按', '工作状态-清点归档'],
   money: ['余额-数金皱眉', '余额-钱袋满溢'],
 };
+let ANIM = ANIM_BUILTIN;
+let animDir = ANIM_DIR;
+// 扩充包（plus）：把另一个角色包的动作并入某个内置形象。
+// 目前只有 dsh1（蓝毛小女仆·新动作）是 大肥鱼v1 的扩充包。
+const PLUS_TARGET = { dsh1: 'v1' };
+// 立绘/图集形象的素材不在安装包里：对应 zip 装好后才启用（charKey -> packId）
+const CODE_CHAR_PACKS = { v6: 'v2', gpt: 'gptv1' };
+const CODE_CHAR_DEFS = {};
+const PLUS = {};          // charId -> { dir, actions:[{id,category}] }
+let plusSrc = {};         // 动作名 -> 目录（并入后按动作名选目录）
+let animFile = {};        // 动作名 -> 完整文件路径（形象包素材按 <id>-<动作> 命名后用清单解析）
 
 let curAnim = '';
 let curNoMirror = false;
@@ -496,246 +569,8 @@ let oneShotSeq = 0;
 // 立绘素材已归一化到 640×360、与动画角色同一站位，命中判定/气泡/缩放都不用改
 const CHARS = {
   v1: { label: '大肥鱼v1', kind: 'video' },
-  v2: {
-    label: '大肥鱼v2',
-    kind: 'pose',
-    dir: '../assets/fish2/',
-    idle: ['DSniang1', 'half_closed_eyes'],
-    map: {
-      '待机呼吸休闲': 'DSniang1',
-      '原地漂浮踏步': 'DSniang1',
-      '螃蟹走路': 'DSniang1',
-      '原地左转奔跑': 'DSniang1',
-      '原地小憩沉眠': 'close_eyes',
-      '工作状态-垂头叹气冒汗': 'sad',
-      '工作状态-雀跃庆祝': 'cheer',
-      '被鼠标拖拽悬空反馈': 'scared',
-      写代码: 'ok',
-      '工作状态-思考冒泡': 'half_closed_eyes',
-      '工作状态-忙碌点按': 'ok',
-      '工作状态-清点归档': 'quiet',
-      吃白饭: 'fatfish',
-      吃Token: 'fatfish',
-      大口吃零食: 'fatfish',
-      '点击回应-开心跃动': 'cheer',
-      '点击回应-害羞惊讶': 'shy',
-      '点击回应-傲娇生气': 'angry',
-      '点击回应-挠痒咯咯笑': 'mock',
-      '点击回应-元气挥手': 'greet',
-      '余额-数金皱眉': 'disappointed',
-      '余额-钱袋满溢': 'thumbsup',
-      '是啊，吃什么': 'what',
-      '深度思考碎碎念': 'quiet',
-    },
-    fallback: ['cheer', 'greet', 'shy', 'mock', 'stroking', 'thumbsup', 'what', 'ok', 'exhausted', 'fatfish'],
-    actions: [
-      ['DSniang1', '打个招呼'],
-      ['greet', '挥手'],
-      ['cheer', '加油'],
-      ['shy', '害羞'],
-      ['mock', '得瑟'],
-      ['thumbsup', '点赞'],
-      ['ok', '比个 OK'],
-      ['quiet', '嘘'],
-      ['close_eyes', '闭眼休息'],
-      ['half_closed_eyes', '眯眼'],
-      ['exhausted', '累瘫'],
-      ['sad', '难过'],
-      ['disappointed', '失落'],
-      ['scared', '吓一跳'],
-      ['stroking', '摸摸头'],
-      ['what', '疑惑'],
-      ['angry', '生气'],
-      ['fatfish', '吃胖了'],
-    ],
-  },
-  v3: {
-    label: '大肥鱼v3',
-    kind: 'pose',
-    dir: '../assets/fish3/',
-    idle: ['DSniang1', 'bored'],
-    map: {
-      '待机呼吸休闲': 'DSniang1',
-      '原地漂浮踏步': 'DSniang1',
-      '螃蟹走路': 'DSniang1',
-      '原地左转奔跑': 'DSniang1',
-      '原地小憩沉眠': 'close_eyes',
-      '工作状态-垂头叹气冒汗': 'wronged',
-      '工作状态-雀跃庆祝': 'superhappy',
-      '被鼠标拖拽悬空反馈': 'shocked',
-      写代码: 'ok',
-      '工作状态-思考冒泡': 'dazed',
-      '工作状态-忙碌点按': 'know',
-      '工作状态-清点归档': 'thumbsup',
-      吃白饭: 'give',
-      吃Token: 'give',
-      大口吃零食: 'happy',
-      '点击回应-开心跃动': 'happy',
-      '点击回应-害羞惊讶': 'shy',
-      '点击回应-傲娇生气': 'angry',
-      '点击回应-挠痒咯咯笑': 'fakelaugh',
-      '点击回应-元气挥手': 'superhappy',
-      '余额-数金皱眉': 'disappointed',
-      '余额-钱袋满溢': 'money',
-      '是啊，吃什么': 'question',
-      '深度思考碎碎念': 'dazed',
-    },
-    fallback: ['superhappy', 'happy', 'money', 'proud', 'wicked', 'shy', 'thumbsup', 'give', 'fakelaugh', 'loud'],
-    actions: [
-      ['DSniang1', '打个招呼'],
-      ['amazing', '惊叹'],
-      ['astonish', '震惊'],
-      ['angry', '生气'],
-      ['bored', '无聊'],
-      ['caught', '被抓包'],
-      ['close_eyes', '闭眼休息'],
-      ['cornerfish', '缩墙角'],
-      ['dazed', '发懵'],
-      ['disappointed', '失落'],
-      ['exhausted', '累瘫'],
-      ['fakelaugh', '假笑'],
-      ['give', '送你'],
-      ['gotcha', '得手了'],
-      ['grit', '咬牙'],
-      ['half_closed_eyes', '眯眼'],
-      ['happy', '开心'],
-      ['know', '懂了'],
-      ['loud', '大喊'],
-      ['money', '数钱'],
-      ['ok', '比个 OK'],
-      ['paymore', '得加钱'],
-      ['proud', '得意'],
-      ['question', '疑问'],
-      ['shocked', '吓到'],
-      ['shy', '害羞'],
-      ['sotaku', '慌乱'],
-      ['superhappy', '超开心'],
-      ['thumbsup', '点赞'],
-      ['what2', '疑惑'],
-      ['wicked', '使坏'],
-      ['wronged', '委屈'],
-    ],
-  },
-  v4: {
-    label: '大肥鱼v4',
-    kind: 'pose',
-    dir: '../assets/fish4/',
-    idle: ['sleepy', 'stretch'],
-    map: {
-      '待机呼吸休闲': 'DSniang1',
-      '原地漂浮踏步': 'DSniang1',
-      '螃蟹走路': 'DSniang1',
-      '原地左转奔跑': 'DSniang1',
-      '原地小憩沉眠': 'sleepy',
-      '工作状态-垂头叹气冒汗': 'cry',
-      '工作状态-雀跃庆祝': 'cheer',
-      '被鼠标拖拽悬空反馈': 'dame',
-      写代码: 'study',
-      '工作状态-思考冒泡': 'hm',
-      '工作状态-忙碌点按': 'youwrite',
-      '工作状态-清点归档': 'reflect',
-      吃白饭: 'cake',
-      吃Token: 'candy',
-      大口吃零食: 'tea',
-      '点击回应-开心跃动': 'cheer',
-      '点击回应-害羞惊讶': 'shy',
-      '点击回应-傲娇生气': 'hip',
-      '点击回应-挠痒咯咯笑': 'peek',
-      '点击回应-元气挥手': 'greet',
-      '余额-数金皱眉': 'poorfish',
-      '余额-钱袋满溢': 'good',
-      '是啊，吃什么': 'hm',
-      '深度思考碎碎念': 'insight',
-    },
-    fallback: ['good', 'heart', 'cheer', 'hip', 'peek', 'stretch', 'wake', 'run', 'grace', 'wipe'],
-    actions: [
-      ['DSniang1', '打个招呼'],
-      ['cake', '吃蛋糕'],
-      ['candy', '吃糖'],
-      ['caught', '被抓包'],
-      ['cheer', '加油'],
-      ['close_eyes', '闭眼休息'],
-      ['cry', '大哭'],
-      ['dame', '不行'],
-      ['evidence', '有证据'],
-      ['good', '好耶'],
-      ['grace', '优雅'],
-      ['greet', '挥手'],
-      ['half_closed_eyes', '眯眼'],
-      ['heart', '比心'],
-      ['hip', '叉腰'],
-      ['hit', '被敲头'],
-      ['hm', '嗯…'],
-      ['insight', '顿悟'],
-      ['peek', '偷看'],
-      ['poorfish', '穷鱼'],
-      ['ready', '准备好了'],
-      ['reflect', '反省'],
-      ['run', '跑路'],
-      ['shy', '害羞'],
-      ['sleepy', '困了'],
-      ['stretch', '伸懒腰'],
-      ['study', '学习'],
-      ['tea', '喝茶'],
-      ['wall', '撞墙'],
-      ['wipe', '擦眼泪'],
-      ['youwrite', '你写'],
-      ['wake', '醒来'],
-    ],
-  },
-  v5: {
-    label: '大肥鱼v5',
-    kind: 'pose',
-    dir: '../assets/fish5/',
-    idle: ['DSniang1', 'half_closed_eyes'],
-    map: {
-      '待机呼吸休闲': 'DSniang1',
-      '原地漂浮踏步': 'DSniang1',
-      '螃蟹走路': 'DSniang1',
-      '原地左转奔跑': 'DSniang1',
-      '原地小憩沉眠': 'sleep',
-      '工作状态-垂头叹气冒汗': 'nooo',
-      '工作状态-雀跃庆祝': 'dancing',
-      '被鼠标拖拽悬空反馈': 'tremble',
-      写代码: 'workhard',
-      '工作状态-思考冒泡': 'thinking',
-      '工作状态-忙碌点按': 'slacking',
-      '工作状态-清点归档': 'reading',
-      吃白饭: 'noodles',
-      吃Token: 'boba',
-      大口吃零食: 'icecream',
-      '点击回应-开心跃动': 'dancing',
-      '点击回应-害羞惊讶': 'snowman',
-      '点击回应-傲娇生气': 'nooo',
-      '点击回应-挠痒咯咯笑': 'boba',
-      '点击回应-元气挥手': 'workhard',
-      '余额-数金皱眉': 'thinking',
-      '余额-钱袋满溢': 'dancing',
-      '是啊，吃什么': 'noodles',
-      '深度思考碎碎念': 'thinking',
-    },
-    fallback: ['dancing', 'guitar', 'gaming', 'boba', 'icecream', 'snowman', 'reading', 'slacking'],
-    actions: [
-      ['DSniang1', '打个招呼'],
-      ['half_closed_eyes', '眯眼发呆'],
-      ['sleep', '睡着了'],
-      ['slacking', '趴桌摸鱼'],
-      ['workhard', '打工中'],
-      ['thinking', '托腮思考'],
-      ['reading', '看书'],
-      ['gaming', '打游戏'],
-      ['dancing', '转圈舞'],
-      ['guitar', '弹吉他'],
-      ['boba', '喝奶茶'],
-      ['icecream', '吃冰淇淋'],
-      ['noodles', '嗦面'],
-      ['snowman', '堆雪人'],
-      ['nooo', '大哭'],
-      ['tremble', '瑟瑟发抖'],
-    ],
-  },
   v6: {
-    label: '大肥鱼v6',
+    label: '大肥鱼v2',
     kind: 'pose',
     dir: '../assets/fish6/',
     idle: ['DSniang1'],
@@ -769,7 +604,7 @@ const CHARS = {
     actions: [['rua', '摸摸头']],
   },
   gpt: {
-    label: 'GPT 娘',
+    label: 'GPT娘v1',
     kind: 'sprite',
     dsh: false,
     dir: '../assets/gpt/',
@@ -785,53 +620,10 @@ const CHARS = {
       ['runLeft', '向左奔跑'],
     ],
   },
-  gpt2: {
-    label: 'GPT娘v2（测试）',
-    kind: 'pose',
-    dsh: false,
-    dir: '../assets/gpt2/',
-    idle: ['smile', 'calm'],
-    map: {
-      '待机呼吸休闲': 'smile',
-      '原地漂浮踏步': 'smile',
-      '螃蟹走路': 'smile',
-      '原地左转奔跑': 'smile',
-      '原地小憩沉眠': 'closed',
-      '工作状态-垂头叹气冒汗': 'wronged',
-      '工作状态-雀跃庆祝': 'surprised',
-      '被鼠标拖拽悬空反馈': 'surprised',
-      写代码: 'serious',
-      '工作状态-思考冒泡': 'calm',
-      '工作状态-忙碌点按': 'serious',
-      '工作状态-清点归档': 'calm',
-      吃白饭: 'shy',
-      吃Token: 'puffed',
-      大口吃零食: 'shy',
-      '点击回应-开心跃动': 'smile',
-      '点击回应-害羞惊讶': 'shy',
-      '点击回应-傲娇生气': 'serious',
-      '点击回应-挠痒咯咯笑': 'puffed',
-      '点击回应-元气挥手': 'smile',
-      '余额-数金皱眉': 'wronged',
-      '余额-钱袋满溢': 'surprised',
-      '是啊，吃什么': 'puffed',
-      '深度思考碎碎念': 'calm',
-    },
-    fallback: ['smile', 'calm', 'surprised', 'shy', 'puffed', 'closed', 'serious', 'wronged'],
-    actions: [
-      ['smile', '自然微笑'],
-      ['calm', '平静'],
-      ['surprised', '惊讶'],
-      ['shy', '害羞'],
-      ['puffed', '鼓腮'],
-      ['closed', '闭眼轻笑'],
-      ['serious', '认真'],
-      ['wronged', '委屈'],
-    ],
-  },
 };
 const charOf = (id) => CHARS[id] || CHARS.v1;
 const charNow = () => charOf(S.character);
+for (const k of Object.keys(CODE_CHAR_PACKS)) CODE_CHAR_DEFS[k] = CHARS[k];
 // 是否有 DeepSeek 味（白饭梗/表情包）；GPT 娘没有
 const isDsh = () => charNow().dsh !== false;
 
@@ -1037,6 +829,21 @@ function setPose(pose, pop) {
   }
 }
 
+vidEl.addEventListener('playing', hideSnap);
+// 播放失败（文件缺失/包损坏）时把该动作从池里踢掉并回落待机，而不是让形象凭空消失
+const failedActions = new Set();
+vidEl.addEventListener('error', () => {
+  hideSnap();
+  const name = curAnim;
+  if (name && !failedActions.has(name)) {
+    failedActions.add(name);
+    HAS.delete(name);
+    delete animFile[name];
+    delete plusSrc[name];
+    curAnim = '';
+    try { playAnim(ANIM.idle, true); } catch (e) { /* 兜底失败就静默 */ }
+  }
+});
 petImgEl.addEventListener('animationend', (e) => {
   if (e.animationName === 'posePop') petImgEl.classList.remove('pop');
 });
@@ -1073,8 +880,9 @@ function playAnim(pool, loop, restart) {
   curAnim = name;
   curNoMirror = NO_MIRROR.has(name);
   refreshFlip();
+  snapshotFrame();
   vidEl.loop = !!loop;
-  vidEl.src = ANIM_DIR + name + '.webm';
+  vidEl.src = animFile[name] || (plusSrc[name] || animDir) + name + '.webm';
   const pr = vidEl.play();
   if (pr && pr.catch) pr.catch(() => {});
 }
@@ -1116,24 +924,354 @@ function playOnce(pool, restart) {
 }
 
 // 闲时随机小节目：分类与权重参考 dsh-pet 的 animationWeights / categories 配置
-const HAS = new Set(window.PET_ANIMS || []);
-const ACTIONS = [
+const ACTIONS_BUILTIN = [
   { weight: 20, id: 'small', pool: ['悠闲哼歌','超大伸懒腰','原地敲击桌面互动','原地重力下蹲压缩','哈欠连天','女仆屈膝礼仪','被吓一跳','小幅度原地360度旋转展示','偷吃零食被抓住','用鲸鱼尾巴拍打地面','打瞌睡被惊醒','照镜子','整体换装试色','轻快记录','摇扇纳凉','晨间刷牙','东张西望','工作状态-原地踱步张望'] },
   { weight: 20, id: 'play', pool: ['原地专心玩魔方','原地蹲下玩玩具汽车','鲸鱼吐泡泡特效','原地跳跃抓碎头顶物品','玩游戏气急败坏','玩水枪','小提琴演奏','蓝鲸现世','优雅女仆舞','轻快摇摆舞','可爱宅舞','吹气球','动物环绕','放风筝','拆礼物','变鸽子','扑克魔术','抽陀螺','吹笛子','蝴蝶蜜蜂环绕头顶开花','撸猫','凭空生花','骑木马','三球抛接','踢毽子','下五子棋','荡秋千'] },
   { weight: 16, id: 'eat', pool: ['吃早餐','吃午餐','吃晚餐','吃冰淇淋融化','吃大闸蟹','吃糖葫芦','吃长寿面','吃西瓜','涮火锅'] },
   { weight: 14, id: 'season', pool: ['被落叶淹没','中秋赏月吃月饼','堆雪人','放烟花','吃粽子','吃年糕','吃青团','吃腊八粥','吃重阳糕','收红包','写福字','穿针乞巧','舞狮头','讨糖南瓜灯','插茱萸赏菊','放河灯','萌化小幽灵','装点圣诞树','放孔明灯','吃汤圆','吃饺子'] },
   { weight: 10, id: 'text', pool: ['是啊，吃什么','深度思考碎碎念'] },
 ];
-const WHISPERS = ['碎碎念-擦桌碎碎念','碎碎念-发呆碎碎念', '碎碎念-对屏碎碎念'];
+const WHISPERS_BUILTIN = ['碎碎念-擦桌碎碎念','碎碎念-发呆碎碎念', '碎碎念-对屏碎碎念'];
 // 带文字的动画不能镜像（照抄 dsh-pet 的 noMirror 约定）
 const NO_MIRROR = new Set(['是啊，吃什么', '深度思考碎碎念']);
 // 余额账本按已用百分比分档播动画
-const BALANCE_TIERS = ['余额-钱袋满溢', '余额-金袋叮当', '余额-钱袋如常', '余额-数金皱眉', '余额-袋空如洗', '余额-分文不剩'];
+const BALANCE_BUILTIN = ['余额-钱袋满溢', '余额-金袋叮当', '余额-钱袋如常', '余额-数金皱眉', '余额-袋空如洗', '余额-分文不剩'];
+
+// 当前形象的动作表；内置形象用上面几份常量，形象包会整份换掉
+let HAS = new Set(window.PET_ANIMS || []);
+let ACTIONS = ACTIONS_BUILTIN;
+let WHISPERS = WHISPERS_BUILTIN;
+let BALANCE_TIERS = BALANCE_BUILTIN;
 
 const usable = (list) => {
   if (charNow().kind === 'sprite') return list.filter((n) => Boolean(SPRITE_MAP[n]));
   return list.filter((n) => HAS.has(n));
 };
+
+// ── 形象包 ────────────────────────────────────────────────────────────────
+// 下载来的角色包动作命名自成一套（「中国功夫」「冰箱翻吃的」），没有内置那套
+// 「待机/点击回应/工作状态」前缀。所以用上游给的 category + 关键字兜底，
+// 把包里的动作映射到固定的行为槽位上；映射不到就退化到待机动作，保证永远有东西播。
+const PACK_CAT_WEIGHT = {
+  日常起居: 18, 娱乐休闲: 20, 运动健身: 12, 才艺表演: 14,
+  吃喝: 14, 手工节日: 10, 工作职业: 10, 情绪反应: 12, 换装造型: 8, 未分类: 6,
+};
+
+function buildPackTables(actions) {
+  const ids = actions.map((a) => a.id);
+  const catOf = new Map(actions.map((a) => [a.id, a.category || '未分类']));
+  const inCat = (c) => ids.filter((n) => catOf.get(n) === c);
+  const kw = (...ks) => ids.filter((n) => ks.some((k) => n.includes(k)));
+  const or = (...lists) => {
+    for (const l of lists) if (l && l.length) return l;
+    return [];
+  };
+
+  const idle = or(kw('待机', '站立', '晃神', '发呆'), inCat('日常起居'), [ids[0]]);
+  const anim = {
+    idle,
+    move: or(kw('走', '跑', '踏步', '跳'), inCat('运动健身'), idle),
+    drag: or(kw('拖', '悬空', '被吓', '惊'), inCat('情绪反应'), idle),
+    clicks: or(kw('点击', '回应', '招手'), inCat('情绪反应'), ids.slice(0, 6)),
+    feed: or(inCat('吃喝'), kw('吃', '喝'), ids.slice(0, 3)),
+    sleep: or(kw('睡', '困', '眠', '哈欠'), inCat('日常起居'), idle),
+    sad: or(kw('难过', '叹气', '汗', '生闷气', '委屈'), inCat('情绪反应'), idle),
+    happy: or(kw('开心', '笑', '庆祝', '欢呼'), inCat('情绪反应'), idle),
+    work: or(inCat('工作职业'), kw('工作', '办公', '敲'), ids.slice(0, 4)),
+    money: or(kw('余额', '钱'), idle),
+  };
+
+  const pools = [];
+  for (const c of Object.keys(PACK_CAT_WEIGHT)) {
+    const pool = inCat(c);
+    if (pool.length) pools.push({ weight: PACK_CAT_WEIGHT[c], id: c, pool });
+  }
+  if (!pools.length) pools.push({ weight: 20, id: 'all', pool: ids });
+
+  const whispers = kw('碎碎念', '嘀咕');
+  const balance = kw('余额');
+  return {
+    anim,
+    pools,
+    whispers: whispers.length ? whispers : idle,
+    balance: balance.length ? balance : idle,
+  };
+}
+
+// 当前已安装/已注册的形象包：id -> { id, name, cover, actions:[{id,category}] }
+const PACKS = {};
+
+const PACK_LABEL = { gpt: 'GPT娘v2', dsh1: '大肥鱼v1 plus' };   // 包名统一成「角色 + 版本」，卡片上不放「动作包」字样
+const shortPackName = (n) => String(n || '').replace(/\s*动作包$/, '').replace(/·.*$/, '');
+
+function registerPack(pack) {
+  if (PACK_LABEL[pack.id]) pack = Object.assign({}, pack, { name: PACK_LABEL[pack.id] });
+  PACKS[pack.id] = pack;
+  const target = PLUS_TARGET[pack.id];
+  if (target) {
+    // 扩充包：动作并进目标形象，不单独出现在形象列表里
+    PLUS[target] = { dir: `../characters/${pack.id}/animations/`, root: `../characters/${pack.id}/`, actions: pack.actions || [] };
+    delete CHARS['pack:' + pack.id];
+    return;
+  }
+  CHARS['pack:' + pack.id] = {
+    label: pack.name,
+    kind: 'pack',
+    dsh: false,
+    dir: `../characters/${pack.id}/animations/`,
+    pack,
+  };
+}
+
+// 切换形象时换掉整套动作表（内置 <-> 包）
+function applyAnimTables(ch, id) {
+  if (ch.kind === 'pack' && ch.pack && ch.pack.actions && ch.pack.actions.length) {
+    const t = buildPackTables(ch.pack.actions);
+    animDir = ch.dir;
+    animFile = {};
+    for (const a of ch.pack.actions) animFile[a.id] = `../characters/${ch.pack.id}/` + a.file;
+    HAS = new Set(ch.pack.actions.map((a) => a.id));
+    ANIM = t.anim;
+    ACTIONS = t.pools;
+    WHISPERS = t.whispers;
+    BALANCE_TIERS = t.balance;
+    return;
+  }
+  animDir = ANIM_DIR;
+  plusSrc = {};
+  animFile = {};
+  const base = window.PET_ANIMS || [];
+  const plus = (id && PLUS[id]) || null;
+  if (plus && plus.actions.length) {
+    const extra = plus.actions.map((a) => a.id);
+    for (const a of plus.actions) {
+      plusSrc[a.id] = plus.dir;
+      animFile[a.id] = plus.root + a.file;
+    }
+    HAS = new Set([...base, ...extra]);
+    ACTIONS = [...ACTIONS_BUILTIN, { weight: 14, id: 'plus', pool: extra }];
+  } else {
+    HAS = new Set(base);
+    ACTIONS = ACTIONS_BUILTIN;
+  }
+  ANIM = ANIM_BUILTIN;
+  WHISPERS = WHISPERS_BUILTIN;
+  BALANCE_TIERS = BALANCE_BUILTIN;
+}
+
+// ── 形象商店 ──────────────────────────────────────────────────────────────
+// 目前是本地导入：选一个 .zip 装进用户目录即可用；远程下载列表等托管就位后再接。
+const setStore = document.getElementById('set-store');
+const dlProgress = {};
+const fmtMB = (b) => ((b || 0) / 1048576).toFixed(1) + ' MB';
+
+let CATALOG = [];        // 远程可下载列表
+let catalogErr = '';
+
+function storeCard(opts) {
+  const cover = opts.cover ? `<img class="store-cover" src="${opts.cover}" alt="">` : '<div class="store-cover"></div>';
+  const pct = Math.round((dlProgress[opts.id] || 0) * 100);
+  const bar = pct > 0 && pct < 100 ? `<div class="store-progress"><i style="width:${pct}%"></i></div>` : '';
+  return '<div class="store-item" title="' + (opts.tip || '') + '">' + cover +
+    '<div class="store-meta"><b>' + opts.name + '</b><span>' + opts.sub + '</span>' + bar + '</div>' +
+    '<div class="store-actions">' + opts.actions + '</div></div>';
+}
+
+const BUILTIN_ROWS = () => {
+  const rows = [{
+    id: 'v1', label: '大肥鱼v1', cover: '../assets/thumbs/v1.webp',
+    sub: '逐帧动画 · ' + (window.PET_ANIMS || []).length + (PLUS.v1 ? '+' + PLUS.v1.actions.length : '') + ' 动作' + (PLUS.v1 ? '（含扩充）' : ''),
+  }];
+  // v2 / GPT娘v1 的素材改成按需下载（packs 分支），装了才出现在列表里
+  if (CHARS.v6) rows.push({ id: 'v6', label: '大肥鱼v2', cover: '../assets/thumbs/v2.webp', sub: '立绘 · 已下载', del: 'v2' });
+  if (CHARS.gpt) rows.push({ id: 'gpt', label: 'GPT娘v1', cover: '../assets/thumbs/gptv1.webp', sub: '73 帧图集 · 已下载', del: 'gptv1' });
+  return rows;
+};
+
+function renderStore() {
+  if (!setStore) return;
+  const parts = [];
+
+  const plusRow = (id) => {
+    const p = PACKS[id];
+    if (!p) return;
+    const target = PLUS_TARGET[id];
+    parts.push(storeCard({
+      id, name: shortPackName(p.name), cover: p.cover, tip: (p.license || '') + ' · ' + p.name,
+      sub: p.actions.length + ' 动作 · ' + fmtMB(p.bytes),
+      actions: '<button disabled title="动作已并入 ' + (CHARS[target] ? CHARS[target].label : target) + '">已并入</button>' +
+               '<button class="danger" data-del="' + id + '">卸载</button>',
+    }));
+  };
+
+  for (const b of BUILTIN_ROWS()) {
+    parts.push(storeCard({
+      id: b.id, name: b.label, cover: b.cover, tip: '内置形象',
+      sub: b.sub,
+      actions: '<button data-char="' + b.id + '"' + (S.character === b.id ? ' class="on"' : '') + '>' +
+               (S.character === b.id ? '使用中' : '使用') + '</button>' +
+               (b.del ? '<button class="danger" data-del="' + b.del + '">卸载</button>' : ''),
+    }));
+    if (b.id === 'v1') plusRow('dsh1');   // 扩充包紧跟在大肥鱼v1下面
+  }
+
+  for (const id of Object.keys(PACKS).sort()) {
+    if (Object.values(CODE_CHAR_PACKS).includes(id)) continue;   // 素材型包已在上面以内置形象身份出现
+    if (PLUS_TARGET[id]) continue;                     // 扩充包单独放在大肥鱼v1下面
+    const p = PACKS[id];
+    const plusFor = PLUS_TARGET[id];
+    // 立绘/图集形象：包只是素材载体，切换要用代码里的形象 key（v6 / gpt）
+    const codeKey = Object.keys(CODE_CHAR_PACKS).find((k) => CODE_CHAR_PACKS[k] === id);
+    const using = codeKey ? S.character === codeKey : S.character === 'pack:' + id;
+    const acts = plusFor
+      ? '<button disabled title="动作已并入 ' + (CHARS[plusFor] ? CHARS[plusFor].label : plusFor) + '">已并入</button>'
+      : '<button data-char="' + (codeKey || 'pack:' + id) + '"' + (using ? ' class="on"' : '') + '>' +
+        (using ? '使用中' : '使用') + '</button>';
+    const sub = codeKey
+      ? (p.actions.length ? p.actions.length + ' 个素材' : '素材包') + ' · ' + fmtMB(p.bytes)
+      : p.actions.length + ' 个动作 · ' + fmtMB(p.bytes);
+    parts.push(storeCard({
+      id, name: shortPackName(p.name), cover: p.cover, tip: (p.license || '') + ' · ' + p.name, sub,
+      actions: acts + '<button class="danger" data-del="' + id + '">卸载</button>',
+    }));
+  }
+
+  for (const c of CATALOG) {
+    if (PACKS[c.id]) continue;
+    const pending = dlProgress[c.id] !== undefined;
+    const btn = pending ? '<button disabled>下载中…</button>' : '<button data-download="' + c.id + '">下载</button>';
+    parts.push(storeCard({
+      id: c.id, name: c.name, cover: c.cover || '', tip: '来自 GitHub（加速链接）',
+      sub: c.actions + ' 动作 · ' + fmtMB(c.zipBytes) + ' · 未安装',
+      actions: btn,
+    }));
+  }
+
+  if (!parts.length) {
+    parts.push('<div class="store-empty">' + (catalogErr ? '暂时连不上形象列表（' + catalogErr + '）' : '还没有可用的形象包') + '</div>');
+  }
+  parts.push('<div class="set-row store-import">' +
+    '<button data-import="1">从本地文件导入（.zip）…</button>' +
+    '<button data-refresh="1">刷新列表</button></div>');
+  setStore.innerHTML = parts.join('');
+}
+
+async function loadCatalog() {
+  try {
+    const list = await window.go.main.App.FetchCharacterCatalog();
+    CATALOG = list || [];
+    catalogErr = '';
+  } catch (e) {
+    CATALOG = [];
+    catalogErr = (e && e.message) ? e.message : String(e);
+  }
+  renderStore();
+}
+
+async function downloadPack(id) {
+  const item = CATALOG.find((c) => c.id === id);
+  if (!item || !item.url) return;
+  dlProgress[id] = 0;
+  renderStore();
+  try {
+    await window.go.main.App.InstallCharacter(id, item.url);
+    delete dlProgress[id];
+    await refreshPacks(id === 'dsh1' ? null : id);
+    applyCharacter(S.character, false);
+  } catch (e) {
+    delete dlProgress[id];
+    renderStore();
+    alert('下载失败：' + (e && e.message ? e.message : e));
+  }
+}
+
+async function refreshPacks(selectId) {
+  const list = await window.go.main.App.ListInstalledCharacters();
+  // 先清空再重建，否则卸载掉的包还会留在 PACKS/CHARS 里
+  for (const k of Object.keys(PACKS)) delete PACKS[k];
+  for (const k of Object.keys(CHARS)) if (k.startsWith('pack:')) delete CHARS[k];
+  for (const k of Object.keys(PLUS)) delete PLUS[k];
+  for (const p of list || []) registerPack(p);
+  refreshCodeChars();
+  renderStore();
+  if (selectId && CHARS['pack:' + selectId]) applyCharacter('pack:' + selectId, true);
+}
+
+// v6 / GPT娘v1 的定义留在代码里，素材在用户目录；没装就隐藏，切过来的话回落 v1
+function refreshCodeChars() {
+  for (const key of Object.keys(CODE_CHAR_PACKS)) {
+    const packId = CODE_CHAR_PACKS[key];
+    const wasCurrent = S.character === key;
+    if (PACKS[packId]) {
+      // v6 的姿势图在包内 poses/ 子目录，gpt 图集在包根目录
+      const sub = key === 'v6' ? 'poses/' : '';
+      const dir = '../characters/' + packId + '/' + sub;
+      const changed = !CHARS[key] || CHARS[key].dir !== dir;
+      if (!CHARS[key]) CHARS[key] = Object.assign({}, CODE_CHAR_DEFS[key], { dir });
+      else CHARS[key].dir = dir;
+      // GPT娘v1 的图集路径写在 SPRITE 配置里（原先是内置路径），素材包就位后要指向用户目录并强制重载
+      if (key === 'gpt') {
+        const want = dir + 'spritesheet.webp';
+        if (SPRITE.sheet !== want) {
+          SPRITE.sheet = want;
+          spriteSheetImg = null;
+        }
+      }
+      // 启动时它可能已经按「还没就位的旧路径」应用过一次（图集 404 = 隐形），
+      // 目录变了就必须重新应用，否则「使用中」的形象和实际显示的对不上
+      if (changed && wasCurrent) applyCharacter(key, false);
+    } else {
+      if (CHARS[key]) delete CHARS[key];
+      if (wasCurrent) applyCharacter('v1', true);
+    }
+  }
+}
+
+async function loadInstalledCharacters() {
+  try { await refreshPacks(); } catch (e) { console.warn('读取形象包失败', e); }
+  loadCatalog();
+}
+
+// 下载进度事件（Go 侧 InstallCharacter 每读一块就 emit 一次）
+if (window.runtime && window.runtime.EventsOn) {
+  window.runtime.EventsOn('character-progress', (p) => {
+    if (!p || !p.id || !p.total) return;
+    dlProgress[p.id] = Math.min(1, p.downloaded / p.total);
+    if (settingsOpen) renderStore();
+  });
+}
+
+async function importPack() {
+  try {
+    const picked = await window.runtime.OpenFileDialog({
+      Title: '选择形象包（.zip）',
+      Filters: [{ DisplayName: '形象包', Pattern: '*.zip' }],
+    });
+    const file = Array.isArray(picked) ? picked[0] : picked;
+    if (!file) return;
+    const id = await window.go.main.App.InstallCharacterFromFile(file);
+    await refreshPacks(id);
+  } catch (e) {
+    alert('导入失败：' + (e && e.message ? e.message : e));
+  }
+}
+
+async function removePack(id) {
+  const name = PACKS[id] ? PACKS[id].name : id;
+  if (!confirm('确定卸载「' + name + '」吗？动画文件会从本机删除。')) return;
+  try {
+    await window.go.main.App.RemoveCharacter(id);
+    // 全量重建：清掉 PACKS/CHARS/PLUS（扩充包的动作要一并从 v1 的池子里移除，
+    // 否则 v1 还会去播已经删掉的文件）；再刷新远程目录，卸载的包重新出现在「可下载」里
+    await refreshPacks();
+    loadCatalog();
+    applyCharacter(S.character === 'pack:' + id ? 'v1' : S.character, false);
+  } catch (e) {
+    alert('卸载失败：' + (e && e.message ? e.message : e));
+  } finally {
+    renderStore();   // 任何一步出错都要把列表重画，别留下刷到一半的状态
+  }
+}
 const pickWeighted = () => {
   const total = ACTIONS.reduce((a, c) => a + c.weight, 0);
   let r = Math.random() * total;
@@ -1254,24 +1392,109 @@ function applyLean(x, y) {
 
 // ---------------------------------------------------------------- 气泡
 
+// 所有气泡显示路径统一走这里：字体就绪 + 高度长齐（≥36px）才亮出来，
+// 否则就会像录屏里那样先弹一条空带子/半截，内容到位后才撑高。
+function revealBubble(ms) {
+  const start = Date.now();
+  let lastH = -1, stableFrames = 0;
+  // 两重条件同时满足才显示：
+  // 1) 高度连续 3 帧不再变化（图片/字体/内容全部就位，不会中途再长高）
+  // 2) 高度 ≥ 36px（排除空带子）
+  // 梗图加载到一半时高度是逐帧上涨的，「高度稳定」能把这种状态拦住
+  const tryReveal = () => {
+    const h = bubbleEl.offsetHeight;
+    if ((h < 36 || h !== lastH) && Date.now() - start < 1500) {
+      stableFrames = (h === lastH && h >= 36) ? stableFrames + 1 : 0;
+      lastH = h;
+      requestAnimationFrame(tryReveal);
+      return;
+    }
+    positionBubble();
+    if (!bubbleEl.classList.contains('show')) bubbleEl.classList.add('show');
+    S.bubbleTimer = setTimeout(() => bubbleEl.classList.remove('show'), ms);
+  };
+  if (document.fonts && document.fonts.status !== 'loaded') {
+    document.fonts.ready.then(tryReveal, tryReveal);
+  } else {
+    requestAnimationFrame(tryReveal);
+  }
+}
+
 function say(text, ms = 3200, memeKey, memeFile) {
   clearTimeout(S.bubbleTimer);
   bubbleText.textContent = text;
   const pool = memeKey && MEMES[memeKey];
   const file = memeFile || (pool && pool.length ? `../assets/memes/${pick(pool)}.webp` : '');
-  if (file) {
-    memeEl.classList.toggle('archive', !!memeFile);
-    memeEl.src = file;
-    memeEl.classList.remove('hide');
-  } else {
-    memeEl.classList.add('hide');
-  }
   barsEl.classList.add('hide');
   usageEl.classList.add('hide');
-  bubbleEl.classList.add('show');
-  positionBubble();
-  S.bubbleTimer = setTimeout(() => bubbleEl.classList.remove('show'), ms);
+  const reveal = () => revealBubble(ms);
+  // 硬闸门：气泡高度没长齐（图片/字体没就绪时会是一条 ~20px 的空带子）就绝不显示。
+  // 逐帧录屏确认过：空带子先弹 0.1s、图片到位才撑高——用户看到的就是「先一半后全部」。
+  // 最多等 400ms，超时（比如图片加载失败）也照常显示。
+  const revealLaidOut = (start) => {
+    if (bubbleEl.offsetHeight < 36 && Date.now() - start < 1500) {
+      requestAnimationFrame(() => revealLaidOut(start));
+      return;
+    }
+    reveal();
+  };
+  // 字体没就绪时文字用回退字体排版，气泡先按小高度弹出，字体到位后行数变化、
+  // 气泡往上长出一截——看起来就是「下半部分先出现，上半部分再出现」。
+  // 所以亮出气泡前先等字体就绪（本地字体，通常几十毫秒）。
+  const fontsReady = (fn) => {
+    if (!document.fonts || document.fonts.status === 'loaded') fn();
+    else document.fonts.ready.then(fn, fn);
+  };
+  if (file) {
+    // 梗图有固定宽度 132px、高度靠图片本身撑开：加载期间高度是 0，
+    // 气泡会先弹成一条空带子，图片到位后才撑高——「先弹出一半再弹出全部」。
+    // 修法：加载期间让梗图 display:none（完全不参与布局，气泡高度=纯文字高度，
+    // 一开始就是最终高度），加载完/失败后才让它回到布局，再亮气泡。
+    memeEl.classList.toggle('archive', !!memeFile);
+    const done = () => fontsReady(() => revealLaidOut(Date.now()));
+    // 用解析后的绝对 URL 比较——file 是 "../assets/..." 而 src 是 "http://.../assets/..."，
+    // 直接 endsWith 永远不相等，缓存判断永远失败
+    const abs = new URL(file, location.href).href;
+    const cached = memeEl.src === abs && memeEl.complete && memeEl.naturalWidth > 0;
+    if (cached) {
+      memeEl.classList.remove('hide');
+      done();
+    } else {
+      memeEl.classList.add('hide');           // 加载期间不占布局
+      memeEl.onload = () => {
+        memeEl.classList.remove('hide');      // 加载完才占布局（此时高度已是最终值）
+        positionBubble();
+        done();
+      };
+      memeEl.onerror = () => { memeEl.classList.add('hide'); done(); };
+      memeEl.src = file;
+      // 同一个 src 赋值不会触发重新加载/onload：如果其实早已加载完成，直接走完成分支
+      if (memeEl.complete && memeEl.naturalWidth > 0) {
+        memeEl.classList.remove('hide');
+        positionBubble();
+        done();
+      }
+    }
+  } else {
+    memeEl.classList.add('hide');
+    fontsReady(() => revealLaidOut(Date.now()));
+  }
 }
+
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(() => {
+    if (bubbleEl.classList.contains('show')) positionBubble();
+  });
+}
+// 兜底：气泡里任何内容变化（文字/账本条/用量表）都重新定位一次。
+// 气泡有三种显示路径（say / 碎碎念 / 账本），内容都是异步填充的，
+// 与其在每条路径上打补丁，不如盯着 DOM 变化统一处理。
+const bubbleRefit = () => { if (bubbleEl.classList.contains('show')) positionBubble(); };
+const bubbleObserver = new MutationObserver(bubbleRefit);
+for (const el of [bubbleText, barsEl, usageEl]) {
+  if (el) bubbleObserver.observe(el, { childList: true, characterData: true, subtree: true });
+}
+memeEl.addEventListener('load', bubbleRefit);
 
 const allMemes = () => (window.ARCHIVE_MEMES || []).concat(window.DSH_MEMES || []);
 
@@ -1371,9 +1594,7 @@ function showUsage(ledger, animate = true) {
     uNote.textContent = '';
     barsEl.classList.add('hide');
     usageEl.classList.remove('hide');
-    bubbleEl.classList.add('show');
-    positionBubble();
-    S.bubbleTimer = setTimeout(() => bubbleEl.classList.remove('show'), 9000);
+    revealBubble(9000);
     return;
   }
   clearTimeout(S.bubbleTimer);
@@ -1412,9 +1633,7 @@ function showUsage(ledger, animate = true) {
   }
   barsEl.classList.add('hide');
   usageEl.classList.remove('hide');
-  bubbleEl.classList.add('show');
-  positionBubble();
-  S.bubbleTimer = setTimeout(() => bubbleEl.classList.remove('show'), 9000);
+  revealBubble(9000);
   if (animate) {
     const tier = balanceTierPools();
     playOnce(tier.length ? tier : ANIM.money);
@@ -1719,9 +1938,6 @@ function syncSettingsUI() {
   for (const btn of setSizes.querySelectorAll('button')) {
     btn.classList.toggle('on', Math.abs(Number(btn.dataset.size) - petScale) < 0.001);
   }
-  for (const btn of setChars.querySelectorAll('button')) {
-    btn.classList.toggle('on', btn.dataset.char === S.character);
-  }
   setFontVal.textContent = `${Math.round(S.fontScale * 100)}%`;
   for (const btn of setSfx.querySelectorAll('button')) {
     btn.classList.toggle('on', btn.dataset.sfx === S.sfx);
@@ -2001,7 +2217,8 @@ async function pickLinkedApp() {
 function applyCharacter(id, save) {
   S.character = CHARS[id] ? id : 'v1';
   const kind = charNow().kind;
-  vidEl.classList.toggle('hide', kind !== 'video');
+  applyAnimTables(charNow(), S.character);
+  vidEl.classList.toggle('hide', kind !== 'video' && kind !== 'pack');
   petImgEl.classList.toggle('hide', kind !== 'pose');
   petSpriteEl.classList.toggle('hide', kind !== 'sprite');
   curAnim = '';
@@ -2012,7 +2229,7 @@ function applyCharacter(id, save) {
   stopSpriteAnimation();
   pickerBuilt = false;
   pickerBody.innerHTML = '';
-  if (kind === 'video') {
+  if (kind === 'video' || kind === 'pack') {
     petImgEl.removeAttribute('src');
     petSpriteEl.getContext('2d').clearRect(0, 0, SPRITE.cellW, SPRITE.cellH);
     spriteDrawn = '';
@@ -2031,12 +2248,6 @@ function applyCharacter(id, save) {
     hitEl.style.top = '36px';
     hitEl.style.width = '173px';
     hitEl.style.height = '187px';
-  } else if (S.character === 'gpt2') {
-    // 圆形头像卡在 #petBox 内的实际位置（500,240,540px 画布坐标）
-    hitEl.style.left = '76px';
-    hitEl.style.top = '-10px';
-    hitEl.style.width = '179px';
-    hitEl.style.height = '179px';
   } else {
     hitEl.style.left = '';
     hitEl.style.top = '';
@@ -2045,7 +2256,13 @@ function applyCharacter(id, save) {
   }
   refreshMenu();
   syncSettingsUI();
+  renderStore();          // 商店列表的「使用中」标记必须跟着切换刷新，否则选中和实际使用对不上
   applyBase();
+  // 换形象后立刻按新动作表起一个待机动作，否则会停在上一套形象的画面上
+  if (kind === 'video' || kind === 'pack') {
+    curAnim = '';
+    playAnim(ANIM.idle, true);
+  }
   // 专注中换形象：重启工作动作调度，避免停在旧动作/间歇
   if (S.pomoRunning) {
     clearPomoGap();
@@ -2253,6 +2470,10 @@ settingsEl.addEventListener('click', (e) => {
     return;
   }
   if (btn.dataset.char) applyCharacter(btn.dataset.char, true);
+  else if (btn.dataset.download) downloadPack(btn.dataset.download);
+  else if (btn.dataset.refresh) loadCatalog();
+  else if (btn.dataset.import) importPack();
+  else if (btn.dataset.del) removePack(btn.dataset.del);
   else if (btn.dataset.size) applyScale(Number(btn.dataset.size), true);
   else if (btn.dataset.dock) applyDock(btn.dataset.dock, true);
   else if (btn.dataset.pomo) applyPomoMin(Number(btn.dataset.pomo), true);
@@ -2746,6 +2967,13 @@ api.on('init', (st) => {
   S.launchApp = typeof set.launchApp === 'string' ? set.launchApp : '';
   applyLedgerUI();
   applyCharacter(set.character, false);
+  // 形象包要读磁盘、是异步的：先按内置形象起来，读完再把保存的包形象应用回去
+  loadInstalledCharacters().then(() => {
+    const saved = String(set.character || '');
+    if ((saved.startsWith('pack:') || CODE_CHAR_PACKS[saved]) && CHARS[saved]) {
+      applyCharacter(saved, false);
+    }
+  });
   applyFontSize(set.fontSize, false);
   applySfx(set.sfx, false);
   applyAutoActionSec(set.autoActionSec || 40, false);
