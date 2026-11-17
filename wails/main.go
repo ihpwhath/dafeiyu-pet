@@ -23,7 +23,7 @@ import (
 )
 
 // Version 由 tools/wails-build.js 按 package.json 同步；开发期用测试版号，发布时用正式版号。
-var Version = "1.5.0"
+var Version = "1.5.1"
 
 // Variant 由构建脚本用 -ldflags 注入（full / lite）。
 var Variant = "full"
@@ -174,6 +174,9 @@ func main() {
 			DisableWindowIcon:                 true,
 			DisableFramelessWindowDecorations: true,
 			WindowClassName:                   windowClass,
+			IsZoomControlEnabled:              false,
+			DisablePinchZoom:                  true,
+			ZoomFactor:                        1,
 		},
 	})
 	if err != nil {

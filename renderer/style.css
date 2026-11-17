@@ -19,6 +19,7 @@ body {
   user-select: none;
   -webkit-user-select: none;
   cursor: default;
+  touch-action: pan-x pan-y; /* 禁捏合缩放，保留滚动/拖动 */
 }
 
 /* 开发用截图模式下垫一层桌面感的底色，方便预览 */

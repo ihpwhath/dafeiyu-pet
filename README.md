@@ -30,12 +30,12 @@
 
 | 版本 | 文件 | 体积 | 说明 |
 | --- | --- | --- | --- |
-| 完整版 | `dafeiyu-pet-1.5.0-setup.exe` | 115.9 MiB | 高画质内置素材；可下载形象包使用 640×360 CRF 32 |
-| Lite 版 | `dafeiyu-pet-lite-1.5.0-setup.exe` | 42.4 MiB | 内置素材压缩；可下载形象包自动选择 480×270 |
+| 完整版 | `dafeiyu-pet-1.5.1-setup.exe` | 115.9 MiB | 高画质内置素材；可下载形象包使用 640×360 CRF 32 |
+| Lite 版 | `dafeiyu-pet-lite-1.5.1-setup.exe` | 42.4 MiB | 内置素材压缩；可下载形象包自动选择 480×270 |
 
 备用下载：[蓝奏云网盘](https://wwaql.lanzouu.com/b01i5xmkri)（密码 **5meo**，由作者手动同步）。
 
-> **当前正式版：1.5.0**（2026-11-17）。本版新增形象商店、9 个可选形象、大肥鱼 plus 与多镜像下载。
+> **当前正式版：1.5.1**（2026-11-17）。修复下载形象后开场白仍说大肥鱼，以及 Ctrl+滚轮 / 捏合导致整个桌宠被放大。
 
 ### 完整版还是 Lite？
 
@@ -175,7 +175,7 @@ npm run dist-install:lite  # 构建 Lite 版、静默安装到本机并启动
 - `tools/wails-build.js` 负责同步版本号、调用 Wails 构建 NSIS 安装包、拷贝到 `dist/`，并支持 `--lite` / `--install`。
 - 安装包使用 `-webview2 download`：检测到缺少 WebView2 时会下载并安装。安装向导为简体中文（NSIS `SimpChinese`）。
 - 发布资产命名为 `dafeiyu-pet-<正式版本>-setup.exe` / `dafeiyu-pet-lite-<正式版本>-setup.exe`，更新检查会按 `setup.exe` 后缀和 lite 标识选择对应版本。
-- **版本号约定**：版本号在 `package.json` 中维护，发布时同步 CHANGELOG / README / 安装包名。Wails 的 Windows 文件版本使用数字段（如 `1.5.0.0`），应用内关于页与更新检查使用完整版本号。
+- **版本号约定**：版本号在 `package.json` 中维护，发布时同步 CHANGELOG / README / 安装包名。Wails 的 Windows 文件版本使用数字段（如 `1.5.1.0`），应用内关于页与更新检查使用完整版本号。
 
 ## 目录结构
 
@@ -288,6 +288,7 @@ docs/                     动作生成提示词库、形象包制作标准、通
 - v1.4.7：GPT娘v2（测试）与 dsh-meme 去重图库。
 - v1.4.8：修复 Win10 背景发虚、桌宠闪现与账本读取；素材零拷贝读取，常驻内存约 1GB → 约 60MB；新增 GitHub Actions。
 - v1.5.0：形象商店与 9 个可选形象、大肥鱼 plus、AI 娘人设台词、Lite 形象包、自制形象包标准、多镜像下载；集中修复气泡、表情队列、睡眠与画质问题。
+- v1.5.1：修复形象包开场白错配（Grok 等形象说成「蓝色大肥鱼」）与 WebView2 页面缩放（Ctrl+滚轮 / Ctrl+加减 / 捏合把桌宠和设置面板整体放大）。
 
 ## 开源协议
 

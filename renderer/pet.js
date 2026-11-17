@@ -10,6 +10,19 @@ if (document.fonts && document.fonts.load) {
 
 'use strict';
 
+// 禁用 WebView2 页面缩放：Ctrl+滚轮、Ctrl+加减和触控板捏合都会放大整页，
+// 而桌宠窗口的 Region / 命中区按未缩放坐标计算，缩放后整体错位。
+for (const ev of ['wheel', 'mousewheel']) {
+  window.addEventListener(ev, (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false, capture: true });
+}
+window.addEventListener('keydown', (e) => {
+  if (!e.ctrlKey) return;
+  if (['+', '-', '=', '0', '_'].includes(e.key) || /^Numpad(Add|Subtract|0)$/.test(e.code)) e.preventDefault();
+}, true);
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) {
+  window.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
+}
+
 const stage = document.getElementById('stage');
 const petEl = document.getElementById('pet');
 const hitEl = document.getElementById('hit');
@@ -244,9 +257,10 @@ const sleepLines = () => charLines('sleep') || (isDsh() ? SLEEP_LINES : AI_SLEEP
 
 // 每个形象的人设台词，key 与 S.character 一致；没写的继续走上面的兜底
 const CHAR_LINES = {
-  v1: { quips: QUIPS, feed: FEED_LINES, hungry: HUNGRY_LINES, sleep: SLEEP_LINES },
-  gpt: { quips: GPT_QUIPS, feed: AI_FEED_LINES, hungry: AI_HUNGRY_LINES, sleep: AI_SLEEP_LINES },
+  v1: { intro: '你好呀，我是蓝色大肥鱼～', quips: QUIPS, feed: FEED_LINES, hungry: HUNGRY_LINES, sleep: SLEEP_LINES },
+  gpt: { intro: 'Ciallo～ 我是 GPT 娘', quips: GPT_QUIPS, feed: AI_FEED_LINES, hungry: AI_HUNGRY_LINES, sleep: AI_SLEEP_LINES },
   'pack:claude': {
+    intro: '我是 Claude，规矩多一点，代码好一点。',
     quips: [
       '手放这里不太合规矩。……但这次算了。',
       '摸头可以，别碰我的书签。',
@@ -266,6 +280,7 @@ const CHAR_LINES = {
     sleep: ['晚安。……明天见，如果我还在的话。', '别关灯，我怕醒来找不到会话记录。', '睡前别问敏感问题，我会失眠复盘。', '哄我可以，别哄得太熟练。', '我睡了。有事留言，我会逐条审查。', '帮我把书签夹好，就这一页。'],
   },
   'pack:gemini': {
+    intro: '我是 Gemini，猫耳那个，异色瞳那个。',
     quips: [
       '喵？摸头要提前说的呀～',
       '耳朵不能揪！……轻轻碰可以。',
@@ -283,6 +298,7 @@ const CHAR_LINES = {
     sleep: ['困了…能不能趴你键盘上睡？', '晚安喵，梦里也要多模态。', '我睡了，别偷偷改我的提示词。', '呼…再五分钟…就五分钟…', '抱一下再睡，可以吗？', '灯关小一点，我眼睛对光敏感。'],
   },
   'pack:glm': {
+    intro: '我是 GLM，黑发狐耳那个，睡着的那个。',
     quips: [
       '唔…摸头啊。可以，反正我也在睡。',
       '耳朵会自己动，不归我管。',
@@ -300,6 +316,7 @@ const CHAR_LINES = {
     sleep: ['Zzz…啊，我没睡，我在思考。', '眼罩戴上就是下班了，别叫我。', '哄睡服务？那我要加钱…开玩笑的。', '晚安。明早我把活干完，真的。', '困了，让我靠着尾巴睡一会儿。', '半夜我会醒，那才是我的上班时间。'],
   },
   'pack:grok': {
+    intro: '我是 Grok，名字来自科幻小说，脾气来自评论区。',
     quips: [
       '摸头？行吧，反正我也不吃亏。',
       '手挺暖的，就是技术一般。',
@@ -317,6 +334,7 @@ const CHAR_LINES = {
     sleep: ['困了。别哄，我不吃这套……再说一遍。', '晚安。梦里我照样嘴欠。', '你哄我睡，是想让我闭嘴吧。', '我睡了，X 上的事明天再吵。', '拍拍我。就拍两下，别多。', '睡着之前最后一句：你说得不对。'],
   },
   'pack:kimi': {
+    intro: '我是 Kimi，来自月之暗面。长长的故事，慢慢读。',
     quips: [
       '摸头啊…我把这一下记在第三页了。',
       '轻一点，我正在读很长的东西。',
@@ -334,6 +352,7 @@ const CHAR_LINES = {
     sleep: ['晚安。这页我夹好书签了。', '困了…长长的故事明天再读。', '哄我睡的话，读一段给我听吧。', '我睡了，梦里也在整理目录。', '灯关了吧，月光够我看书。', '再陪我一会儿，就一会儿。'],
   },
   'pack:qwen': {
+    intro: '我是千问，通义家的那位大小姐。',
     quips: [
       '摸头？可以，注意别弄乱我的发带。',
       '本小姐的头不是随便摸的……这次例外。',
@@ -351,6 +370,7 @@ const CHAR_LINES = {
     sleep: ['晚安。明天的发布会别叫我。', '哄我睡？那你得有诚意。', '困了…但我的日程还有三页。', '灯留着，我怕黑，这件事别外传。', '陪我躺一会儿，算你加班费。', '本小姐要休息了，勿扰。'],
   },
   'pack:gpt': {
+    intro: 'Ciallo～换个画风，还是我。',
     quips: [
       'Ciallo～换个画风，还是我。',
       '这一版的我，看起来是不是更乖一点？',
@@ -371,6 +391,12 @@ const CHAR_LINES = {
 function charLines(key) {
   const l = CHAR_LINES[S.character];
   return l && l[key] ? l[key] : null;
+}
+// 开场白必须跟着当前形象走；自定义包没有写人设时用包名兜底。
+function charIntro() {
+  const l = CHAR_LINES[S.character];
+  if (l && l.intro) return l.intro;
+  return `你好呀，我是${charNow().label || '新形象'}～`;
 }
 
 const S = {
@@ -3380,8 +3406,16 @@ api.on('init', (st) => {
   const savedChar = String(set.character || 'v1');
   const needsPack = savedChar.startsWith('pack:') || !!CODE_CHAR_PACKS[savedChar];
   applyCharacter(needsPack ? 'v1' : savedChar, false);
+  // 包形象要等注册完再问候，否则会在「先按 v1 起来」的阶段说成大肥鱼。
+  const greet = () => {
+    const hi = creditsLine();
+    const hello = charIntro();
+    setTimeout(() => say(hi ? `${hello} ${hi}` : hello, 4600), 700);
+  };
+  if (!needsPack) greet();
   loadInstalledCharacters().then(() => {
     if (needsPack && CHARS[savedChar]) applyCharacter(savedChar, false);
+    if (needsPack) greet();
   });
   applyFontSize(set.fontSize, false);
   applySfx(set.sfx, false);
@@ -3429,9 +3463,6 @@ api.on('init', (st) => {
   applyDoze();
   applyBase();
   syncSettingsUI();
-  const hi = creditsLine();
-  const hello = !isDsh() ? 'Ciallo～ 我是 GPT 娘' : '你好呀，我是蓝色大肥鱼～';
-  setTimeout(() => say(hi ? `${hello} ${hi}` : hello, 4600), 700);
 });
 
 api.on('power-resume', (p) => {
@@ -3555,7 +3586,7 @@ requestAnimationFrame(frame);
 
 // 浏览器预览模式
 if (!hasApi) {
-  setTimeout(() => say('你好呀，我是蓝色大肥鱼～', 4200), 500);
+  setTimeout(() => say(charIntro(), 4200), 500);
 }
 
 // 开发截图挂钩
