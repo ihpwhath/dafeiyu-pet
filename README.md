@@ -15,8 +15,8 @@
 一只在桌面上到处游的「蓝色大肥鱼」小桌宠。她会朝你的鼠标倾身、被你拖着甩来甩去、饿了会蔫、闲下来会碎碎念，还会记账：**她吃掉的白饭，就是你在 Qoder 里烧掉的 credits。**
 
 - **106 个逐帧动作**：待机、吃白饭、写代码、玩魔方、放烟花、中秋赏月、装点圣诞树……
-- **8 个可选形象**：大肥鱼 v1–v6、GPT 娘、GPT娘v2（测试）。
-- **143 张表情包**：经典梗图 + 蓝色大肥鱼档案馆精选 + dsh-meme 图库，逐张配文。
+- **9 个可选形象**：大肥鱼、GPT 娘 v1/v2，以及 Claude、Gemini、GLM、Grok、Kimi、Qwen 六个 AI 娘形象。
+- **144 张表情包**：经典梗图 + 蓝色大肥鱼档案馆精选 + dsh-meme 图库 + 大肥鱼v2 主形象，逐张配文。
 - **白饭账本**：读取本机 Qoder 用量，也能查 DeepSeek、Kimi、SiliconFlow、豆包、ChatGPT、Claude 的余额。
 - **不只是卖萌**：番茄钟、全屏视频/游戏自动避让、自定义互动文字、开机自启、随时点播喜欢的动作。
 
@@ -42,6 +42,7 @@
 | 动画 | 106 个 640×360 原始 VP9-alpha WebM | 480×270 VP9-alpha 压缩 |
 | 表情立绘 | 1280×720 原始 WebP | 720px WebP（q84） |
 | 档案馆表情 | 原始图片 | 480px WebP |
+| 形象包（按需下载） | 640×360 原始包 | 480×270 VP9 压缩包（自动选择） |
 | 音效 / 字体 / 敏感词库 / 梗图 | 保留 | 保留 |
 | 功能 | 完全一致 | 完全一致 |
 
@@ -66,18 +67,14 @@
 
 | 形象 | 类型 | 内容 |
 | --- | --- | --- |
-| 大肥鱼v1 | 逐帧动画 | 106 个 640×360 VP9-alpha 透明 WebM（默认） |
-| 大肥鱼v2 | 表情立绘 | 18 种姿势与表情 |
-| 大肥鱼v3 | 表情立绘 | 32 种姿势与表情 |
-| 大肥鱼v4 | 表情立绘 | 32 种姿势与表情 |
-| 大肥鱼v5 | 表情立绘 | 16 种姿势与表情 |
-| 大肥鱼v6 | 表情立绘 | 2 种姿势，其中「摸摸头」为动图 |
-| GPT 娘 | 图集动画 | 73 帧透明图集，支持待机、奔跑、挥手、工作、等待、庆祝与 16 方向视线 |
-| GPT娘v2（测试） | 表情卡 | 8 种表情：自然微笑、平静、惊讶、害羞、鼓腮、闭眼轻笑、认真、委屈 |
+| 大肥鱼 | 逐帧动画 | 106 个 640×360 VP9-alpha 透明 WebM（默认，内置） |
+| GPT娘v1 | 图集动画 | 73 帧透明图集，支持待机、奔跑、挥手、工作、等待、庆祝与 16 方向视线，按需下载 |
+| 大肥鱼 plus | 扩充包 | 167 个动作并入大肥鱼，不额外占用形象位 |
+| Claude / Gemini / GLM / GPT娘v2 / Grok / Kimi / Qwen | 逐帧动画 | 各自 92~167 个动作，按需下载 |
 
-立绘统一归一化到 1280×720 画布，放大桌宠或在 150% DPI 屏幕上依然清晰；平时有轻微呼吸浮动，换姿势会弹一下。每个形象都有独立的「选个动作」列表。
+形象包在「设置 → 形象与音效」里按需下载，支持本地 `.zip` 导入与随时卸载；Lite 版自动选择 480×270 的压缩包。安装包内置的仍然只有大肥鱼，其余素材不进安装包。自制形象包请按 [docs/形象包制作标准.md](docs/形象包制作标准.md) 打包，仓库提供校验与打包脚本：`tools/character-pack/validate.py`、`make_pack.py`。
 
-GPT 娘和 GPT娘v2 使用专属语录与中性文案，不带白饭梗和表情包，账本显示为「用量账本」。
+非大肥鱼形象使用各自 AI 娘人设的互动文案（Claude 的规矩、Gemini 的猫娘、GLM 的狐娘、Grok 的嘴欠、Kimi 的长文本、Qwen 的大小姐），不带白饭梗和表情包，账本显示为「用量账本」。
 
 ## 互动
 
@@ -101,7 +98,7 @@ GPT 娘和 GPT娘v2 使用专属语录与中性文案，不带白饭梗和表情
 
 | 页面 | 内容 |
 | --- | --- |
-| 形象与音效 | 8 个可选形象；音效：默认 / 鲸鱼音效 / 静音；点击表情播放顺序：伪随机队列 / 真随机 |
+| 形象与音效 | 9 个可选形象；音效：默认 / 鲸鱼音效 / 静音；点击表情播放顺序：伪随机队列 / 真随机 |
 | 尺寸与字体 | 尺寸预设：小 70% / 默认 85% / 大 110% / 特大 140%，支持 5% 微调（0.6×–1.6×）；字体 80%–140%，同步缩放气泡、右键菜单和动作面板 |
 | 待机与自动动作 | 待机位置：到处游 / 右下角 / 固定不动；全屏视频/游戏自动隐藏（可关闭）；自动动作间隔 5–300 秒，默认 40 秒 |
 | 番茄钟 | 时长 5–120 分钟（15 / 25 / 45 / 60 预设，±5 分钟微调）；工作动画播放间隔 5–120 秒，默认 5 秒 |
@@ -131,7 +128,7 @@ GPT 娘和 GPT娘v2 使用专属语录与中性文案，不带白饭梗和表情
 
 ## 表情与动画
 
-**表情库**：经典梗图 20 张 + 蓝色大肥鱼档案馆精选 59 张 + dsh-meme 去重图库 64 张，共 143 张，每张都配有一句贴合画面的文案。导入新图包时已清理现有重复素材（7 张经典梗图 + 1 张档案馆重复图），新图包中与现有重复的 9 张未重复导入。
+**表情库**：经典梗图 20 张 + 蓝色大肥鱼档案馆精选 59 张 + dsh-meme 去重图库 64 张，共 144 张，每张都配有一句贴合画面的文案。导入新图包时已清理现有重复素材（7 张经典梗图 + 1 张档案馆重复图），新图包中与现有重复的 9 张未重复导入。
 
 **动画状态机**：22 个核心动画随状态切换（待机呼吸 / 漂浮踏步 / 螃蟹走路 / 东张西望 / 点击回应 ×5 / 吃白饭 / 吃 Token / 大口吃零食 / 小憩沉眠 / 垂头叹气 / 雀跃庆祝 / 写代码 / 余额数金），外加 84 个闲时小节目。带文字的动画（`是啊，吃什么` / `深度思考碎碎念`）不参与镜像，避免文字被左右翻转。
 
@@ -152,6 +149,7 @@ GPT 娘和 GPT娘v2 使用专属语录与中性文案，不带白饭梗和表情
 ```bash
 npm run build              # 完整版 → dist/dafeiyu-pet-<版本>-setup.exe
 npm run build:lite         # Lite 版（自动生成压缩素材）→ dist/dafeiyu-pet-lite-<版本>-setup.exe
+npm run packs:lite         # 为 packs 分支的可下载形象包生成 Lite 版（480×270）→ characters-build/lite/
 npm run dist-install       # 构建完整版、静默安装到本机并启动
 npm run dist-install:lite  # 构建 Lite 版、静默安装到本机并启动
 ```
@@ -160,7 +158,7 @@ npm run dist-install:lite  # 构建 Lite 版、静默安装到本机并启动
 
 带 `--dev-debug` 启动会额外开一个只监听本机 `127.0.0.1:9336` 的调试桥：`/state` 看窗口/Region 状态、`/mem` 看堆与素材统计、`/fullscreen` 看避让判定、`/js` 直接往页面里注入 JS，排查交互问题很方便。`/accent?state=blur|fix|off` 用来手动切换窗口的 AccentPolicy —— 毛玻璃修复只在 Win10 生效，这个端点可以在 Win11 上人为复现 `blur` 再验证 `fix`，方便回归。
 
-仓库自带 GitHub Actions：push / PR 会跑版本号一致性检查、`go vet`、`go test` 与编译校验；打 `v*` tag 会自动构建完整版与 Lite 版并创建 Release（发布前先把 `package.json` 的版本改好，tag 与它不一致会直接失败）。
+仓库自带 GitHub Actions：push / PR 会跑版本号一致性检查、脚本语法、gofmt、`go vet`、`go test` 与编译校验；打 `v*` tag 会自动构建完整版与 Lite 版、生成 `SHA256SUMS.txt` 并创建 Release（发布前先把 `package.json` 的版本改好，tag 与它不一致会直接失败）。手动触发 Release 时需要填写完整 tag；带 `-` 的 tag 会自动标记为预发布。
 
 ## 打包
 
@@ -188,13 +186,18 @@ wails/                    Wails v2 + Go 后端（唯一实现）
   frontend/api.js         window.pet → Wails 绑定/事件 + 内联 Key/文字编辑
   build/                  程序图标、版本信息、NSIS 安装向导
 tools/
-  wails-prepare.js        从 renderer/ + assets/ 生成 Wails 前端
-  wails-build.js          一键构建 NSIS、拷贝到 dist、可 --install
-  build-lite-assets.py    Lite 压缩素材流水线（只写 assets-lite/）
-  make-char-assets.py     立绘裁 alpha / 归一化 / WebP 流水线
-  build-lexicon.py        离线敏感词库生成
-  pipeline/               自制动作素材流水线（去水印 → 抠绿 → 归一化 → 编码）
-  lanzou-upload/          蓝奏云半自动上传脚本
+  wails-prepare.js            从 renderer/ + assets/ 生成 Wails 前端
+  wails-build.js              一键构建 NSIS、拷贝到 dist、可 --install
+  build-lite-assets.py        Lite 压缩素材流水线（只写 assets-lite/）
+  build-character-pack.py     上游精灵图 → 透明 WebM 形象包
+  build-character-pack-lite.py 形象包 → 480×270 Lite 版
+  install-character-packs.py  构建产物 → 用户目录
+  character-pack/             自制形象包标准配套脚本（validate.py / make_pack.py / 示例清单）
+  rename-pack-assets.py       包内动作文件统一加包名前缀
+  make-char-assets.py         立绘裁 alpha / 归一化 / WebP 流水线
+  build-lexicon.py            离线敏感词库生成
+  pipeline/                   自制动作素材流水线（去水印 → 抠绿 → 归一化 → 编码）
+  lanzou-upload/              蓝奏云半自动上传脚本
 renderer/                 两版共用的前端 DOM/CSS/JS
   index.html              透明视频画布 + 气泡/菜单/账本/设置结构
   style.css               漂浮 / 倾身 / 蹦跳 / 拖拽挣扎等反馈动画 + 上首软糖体
@@ -202,12 +205,10 @@ renderer/                 两版共用的前端 DOM/CSS/JS
   archive-memes.js        档案馆精选表情清单与配文
   dsh-memes.js            dsh-meme 图库清单与配文
 assets/
-  anims/*.webm            106 个上游原始 VP9-alpha 透明动画（大肥鱼v1）
+  anims/*.webm            106 个上游原始 VP9-alpha 透明动画（大肥鱼）
   anims/index.js          动画清单（CSP 不允许 fetch，用 <script> 注入）
-  fish2~fish6/*.webp      五套表情立绘（1280×720）
-  gpt/spritesheet.webp    GPT 娘透明图集（1536×2288，73 帧）
-  gpt2/*.webp             GPT娘v2（测试）表情卡（8 张，CC BY-NC-SA 4.0）
-  memes/*.webp            经典梗图表情包（无损 WebP）
+  thumbs/*.webp           形象列表封面
+  memes/*.webp            经典梗图表情包（无损 WebP，含大肥鱼v2主形象 DSniang1）
   memes/archive/*         档案馆精选 + dsh-meme 去重图库（123 张）
   sounds/*.wav|mp3        默认音效与鲸鱼音效
   fonts/上首软糖体.woff2   完整气泡字体
@@ -276,13 +277,19 @@ docs/                     动作生成提示词库 + 通知图标提示词
 - v1.4.7：GPT娘v2（测试）与 dsh-meme 去重图库，表情库增至 143 张。
 - v1.4.8：修复 Win10 桌面背景发虚、桌宠反复闪现、账本读不到三处问题；素材改为零拷贝读取 + 空闲归还内存，常驻内存约 1GB → 约 60MB；新增 GitHub Actions 自动构建与发布。
 
+## 开源协议
+
+本仓库的程序代码（Go、JavaScript、HTML/CSS 与构建脚本）以 [MIT](LICENSE) 许可开源。角色动画、立绘、表情包、字体与音效等素材不在 MIT 许可范围内，按各自来源的许可使用与再分发（见下节）；其中相当一部分仅限非商业使用，商业使用需另行取得权利人许可。
+
 ## 素材来源与许可
+
+「大肥鱼 plus」与「GPT娘v2 / Claude / Gemini / GLM / Grok / Kimi / Qwen」动作包的动画转码自 [hunmer/aboutme-pets](https://github.com/hunmer/aboutme-pets)。该仓库的 dsh 系列素材禁止商用，公开二创须署名上游仓库；其余角色包的基础立绘来自 [lokicorvus/crosspet](https://github.com/lokicorvus/crosspet)，按 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) 署名、非商业、相同方式共享。本项目的转码包在 [dafeiyu-pet-assets](https://github.com/shenliuyu18/dafeiyu-pet-assets) 以相同条件提供。
 
 角色动画、表情包、字体、光标与通知图标来自 [PC2005-cloud/dsh-pet](https://github.com/PC2005-cloud/dsh-pet)（MIT，见 [THIRD-PARTY-dsh-pet-LICENSE.txt](THIRD-PARTY-dsh-pet-LICENSE.txt)）——一个跑在 DeepSeek Harness 里的桌宠插件，也是这套「蓝发小女仆 + 鲸尾」形象与 106 个动作动画的出处。本程序取用了它的全部动画、全部表情包与图标字体，实现完全独立；随机小节目的分类权重、余额分档规则、`NO_MIRROR` 约定都参考了它的配置文件，`tools/pipeline/` 与 `docs/` 直接来自其素材生产线。
 
 成功 / 失败提示音来自 [QCYTSN/dsh-dafeiyu](https://github.com/QCYTSN/dsh-dafeiyu)（MIT），它的状态划分（idle / poke / head_pat / working / waiting / success / error / dragging / eat_token）也参考了本程序的动画状态机设计。
 
-「大肥鱼v2–v5」的表情立绘来自 [louke6572/dsh-whale-widget-plus](https://github.com/louke6572/dsh-whale-widget-plus)（MIT，见 [THIRD-PARTY-dsh-whale-widget-plus-LICENSE.txt](THIRD-PARTY-dsh-whale-widget-plus-LICENSE.txt)），取用了四套表情包（共 98 张姿势与表情图）；「鲸鱼音效」也来自该项目。
+「大肥鱼v2」的主形象来自 [louke6572/dsh-whale-widget-plus](https://github.com/louke6572/dsh-whale-widget-plus)（MIT，见 [THIRD-PARTY-dsh-whale-widget-plus-LICENSE.txt](THIRD-PARTY-dsh-whale-widget-plus-LICENSE.txt)），保留了 DSniang1 作为表情包；「鲸鱼音效」也来自该项目。
 
 「大肥鱼v6」的形象来自 [MeteorNOX/DeepSeek-Balance-Whale-Widget](https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget)（MIT，见 [THIRD-PARTY-DeepSeek-Balance-Whale-Widget-LICENSE.txt](THIRD-PARTY-DeepSeek-Balance-Whale-Widget-LICENSE.txt)），取用了立绘与「摸摸头」动图。
 
