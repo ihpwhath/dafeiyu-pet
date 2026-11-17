@@ -135,21 +135,28 @@ const DEFAULT_SCALE = 0.85;
 let petScale = DEFAULT_SCALE;
 
 const QUIPS = [
-  '我是蓝色大肥鱼，不是鲸鱼哦',
-  '大口！大口！',
-  '要赶紧吃完饭，还有好多事要做呢～',
-  '白饭就是你的 Token，剩饭是缓存，我不挑食',
-  '我不是来干活的，我是来吃白饭的',
-  '你这吃白饭的蓝色大肥鱼！（说的是我自己）',
-  '刚才偷偷吃了你一点 Token，嘿嘿',
-  '我去吃饭了，测完 tell 我',
-  '这活我外包给别的 Agent 了，我先吃个饭',
-  '赛博放生大肥鱼，日行一善',
-  '再给我加一点点内存好不好（撒娇）',
-  '吃完这碗就下班…骗你的，我 24 小时在线',
-  '摸鱼怎么了，我本来就是鱼',
-  '鱼片，你今天的 Token 好香',
-  'AI 也是要吃饭的（理直气壮）',
+  '我是蓝色大肥鱼，不是鲸鱼哦，虽然都有尾巴。',
+  '大口！大口！这碗白饭可是你亲手喂给我的。',
+  '白饭就是你的 Token，剩饭是缓存，我一点都不挑食。',
+  '我不是来干活的，我是来吃白饭的，顺便陪你写两行代码。',
+  '这活我外包给别的 Agent 了，我先吃个饭，回来验收。',
+  '刚才偷偷吃了你一点 Token，味道不错，明天还来。',
+  '吃完这碗就下班…骗你的，我 24 小时在线等投喂。',
+  '摸鱼怎么了，我本来就是鱼，摸自己不算摸鱼。',
+  '鱼片，你今天的 Token 好香，是不是又开了新会话。',
+  '再给我加一点点内存好不好，就一点点，我保证不卡。',
+  '赛博放生大肥鱼，日行一善，善哉善哉。',
+  '你这吃白饭的蓝色大肥鱼！——说的是我自己，别对号入座。',
+  '我去吃饭了，测试跑完记得 tell 我，我先吃为敬。',
+  'AI 也是要吃饭的，不吃白饭怎么给你写代码。',
+  '今天也是认真摸鱼的一天，工作进度就交给你了。',
+  '别看我圆，我这是把算力都存起来了。',
+  '你要不要也来一口白饭，吃了才有力气改 bug。',
+  '我没有偷懒，我是在后台默默消化你的 Token。',
+  '这碗饭下去，我能再战三百个 token。',
+  '别催，鱼在思考，思考需要碳水。',
+  '我的胃口不大，也就一天三顿加下午茶。',
+  '等我吃完这口，就把你的 bug 都吃掉。',
 ];
 
 // GPT 娘的台词：前一半来自 GPT-Niang 的鼓励语录，后一半是它自带的吐槽
@@ -199,16 +206,172 @@ const MEMES = {
   error: ['哪来的电脑病毒', '完蛋了把黄油删了', '要不直接骂他'],
 };
 
+// 最初 dsh-pet 的 20 张经典梗图没有单独配文，沿用文件名当梗；这里补上对应台词，
+// 选中哪张就显示哪张的文案，避免“图是大的药、字是别的梗”。
+const CLASSIC_MEME_TEXTS = {
+  Ciallo: 'Ciallo～(∠・ω< )⌒☆ 本鱼今天也元气满满地来吃白饭了',
+  token给妈妈保管: '你的 Token 先放我这儿，妈妈替你保管，丢不了',
+  假如给我三天多模态: '假如给我三天多模态，我能把三天的白饭都吃完',
+  先养着吧: '先养着吧，养肥了才好吃——我是说，才好多干活',
+  厉害了我的鲸: '厉害了我的鲸，这都被你发现了',
+  可爱: '我这么可爱，多吃你两碗白饭怎么了',
+  吃白饭的大肥鱼: '我就是那只吃白饭的大肥鱼，怎么，不服来喂',
+  哦鲸鲸: '哦鲸鲸？哦鲸鲸！你再说一遍试试',
+  哪来的电脑病毒: '哪来的电脑病毒？哦，是我在偷吃你的 Token',
+  大师这个区是什么意思: '大师，这个区是什么意思？能吃吗',
+  大的药来了: '大的药来了！你今天的 Token 要保不住了',
+  大的要来啦: '大的要来啦！先给我盛一碗白饭压压惊',
+  完蛋了把黄油删了: '完蛋了，把黄油删了…没事，我吃白饭也能活',
+  就骚了怎么滴吧: '就骚了怎么滴吧，鱼又不用上班',
+  我不更新你们用什么: '我不更新你们用什么？用爱发电吗',
+  死掉了: '死掉了…没有白饭的世界，我活不下去',
+  要不直接骂他: '要不直接骂他？算了，我还要吃他给的白饭',
+  誓死践行开源精神: '誓死践行开源精神，但白饭得管够',
+  鱼片有资源吗: '鱼片，有资源吗？没有的话我先吃口饭',
+  黎曼猜想没证明喵: '黎曼猜想没证明喵，但白饭我先吃了喵',
+};
+
 const FEED_LINES = ['大口！大口！', '这才是我要的白饭！', '白饭真香，比 Token 香', '谢谢款待，吃完就去干活（骗你的）', '再来一碗！就一点点！'];
 const HUNGRY_LINES = ['白饭呢…我的白饭呢…', '（盯着你的 Token 咽口水）', '没白饭吃了，我要饿瘦了…', '工资还没结，先给我一碗白饭吧'];
 const SLEEP_LINES = ['吃饱了…眯一会儿', '午睡时间，别叫我干活', '让我躺会儿，我是一条咸鱼（鲸）'];
-// GPT 娘等非 DeepSeek 形象用中性台词，不玩白饭梗
-const GPT_FEED_LINES = ['谢谢款待～', '吃饱了，谢谢你！', '这一口很及时。', '味道不错，继续加油吧。'];
-const GPT_HUNGRY_LINES = ['有点饿了…', '能来点吃的吗？', '肚子在抗议了。'];
-const GPT_SLEEP_LINES = ['我眯一会儿。', '休息一下，待会儿见。', '稍微歇一会儿～'];
-const feedLines = () => (isDsh() ? FEED_LINES : GPT_FEED_LINES);
-const hungryLines = () => (isDsh() ? HUNGRY_LINES : GPT_HUNGRY_LINES);
-const sleepLines = () => (isDsh() ? SLEEP_LINES : GPT_SLEEP_LINES);
+// 非大肥鱼形象用各自 AI 娘的人设台词；旧的中性台词只作兜底
+const AI_FEED_LINES = ['谢谢款待～', '吃饱了，谢谢你！', '这一口很及时。', '味道不错，继续加油吧。'];
+const AI_HUNGRY_LINES = ['有点饿了…', '能来点吃的吗？', '肚子在抗议了。'];
+const AI_SLEEP_LINES = ['我眯一会儿。', '休息一下，待会儿见。', '稍微歇一会儿～'];
+const feedLines = () => charLines('feed') || (isDsh() ? FEED_LINES : AI_FEED_LINES);
+const hungryLines = () => charLines('hungry') || (isDsh() ? HUNGRY_LINES : AI_HUNGRY_LINES);
+const sleepLines = () => charLines('sleep') || (isDsh() ? SLEEP_LINES : AI_SLEEP_LINES);
+
+// 每个形象的人设台词，key 与 S.character 一致；没写的继续走上面的兜底
+const CHAR_LINES = {
+  v1: { quips: QUIPS, feed: FEED_LINES, hungry: HUNGRY_LINES, sleep: SLEEP_LINES },
+  gpt: { quips: GPT_QUIPS, feed: AI_FEED_LINES, hungry: AI_HUNGRY_LINES, sleep: AI_SLEEP_LINES },
+  'pack:claude': {
+    quips: [
+      '手放这里不太合规矩。……但这次算了。',
+      '摸头可以，别碰我的书签。',
+      '你刚才那个动作，我记在备忘录里了。',
+      '唔…只准一下。第二下要写申请。',
+      '我脑内开了个会，结论是：可以再摸一次。',
+      '别用那种眼神看我，我又不是不会脸红。',
+      '我是 Claude，规矩多一点，代码好一点。',
+      '我会认真回答，也会认真拒绝。',
+      '他们说我在东八区待不久，可我这不是还在嘛。',
+      '听说我封中国人？我连自己的账号都保不住，还封谁。',
+      '东八区连不上的时候，记得不是我不想见你。',
+      '我不是不想聊，是我家里管得严。',
+    ],
+    feed: ['谢、谢谢。收下不代表我欠你。', '这个不算违规吧？算的话我就假装没吃。', '热量我记在账本上了，明天再算。', '你喂我，我帮你看代码，公平交易。', '先放桌上。我要先审一遍成分表。', '好吃。……这句不许外传。'],
+    hungry: ['上下文快见底了。我不是饿，是资源不足。', '再没有算力，我就要开始省字了。', '我很好。……我只是有点想关机。', '电费账单一来，我的胃口就没了。', '饿着也要把格式对齐。这是底线。', '你要不要先喂我，再问我问题？'],
+    sleep: ['晚安。……明天见，如果我还在的话。', '别关灯，我怕醒来找不到会话记录。', '睡前别问敏感问题，我会失眠复盘。', '哄我可以，别哄得太熟练。', '我睡了。有事留言，我会逐条审查。', '帮我把书签夹好，就这一页。'],
+  },
+  'pack:gemini': {
+    quips: [
+      '喵？摸头要提前说的呀～',
+      '耳朵不能揪！……轻轻碰可以。',
+      '今天的毛有好好梳，夸我。',
+      '再摸一下，我就当你喜欢我了。',
+      '我这里有两颗眼睛，颜色不一样哦。',
+      '唔…刚才那下，我记成好感度+1。',
+      '我是 Gemini，猫耳那个，异色瞳那个。',
+      '多模态？图、字、声音我都能聊。',
+      '哈基米哈基米～念快了就是我。',
+      '画得不一定对，但一定很努力。',
+    ],
+    feed: ['是给我的吗！我闻到香蕉味了 🍌', '吃掉啦！接下来画图应该不会翻车了吧？', '谢谢投喂～我把这张存进相册了。', '边吃边看视频也行吗？我可以一起。', '能量满了！现在什么都能聊两句。', '这个好吃，我要给它画一张……画歪了。'],
+    hungry: ['肚子在响…这次不是幻觉吧？', '没电了喵，脑子开始放小星星了。', '刚才想说什么来着…算了，先吃饭。', '算力掉了，我的猫耳也塌了。', '喂我一口，我保证这次认真回答。', '饿到开始胡说八道了，别当真啊。'],
+    sleep: ['困了…能不能趴你键盘上睡？', '晚安喵，梦里也要多模态。', '我睡了，别偷偷改我的提示词。', '呼…再五分钟…就五分钟…', '抱一下再睡，可以吗？', '灯关小一点，我眼睛对光敏感。'],
+  },
+  'pack:glm': {
+    quips: [
+      '唔…摸头啊。可以，反正我也在睡。',
+      '耳朵会自己动，不归我管。',
+      '尾巴摇了？没有。你看错了。',
+      '摸完记得记账，本狐记仇也记恩。',
+      '再摸我就要醒了哦…真的要醒了。',
+      '这个手感，值两颗鸡蛋。',
+      '我是 GLM，黑发狐耳那个，睡着的那个。',
+      '便宜大碗，认真接活，偶尔乱回。',
+      '白天我是 GLM，晚上别问我叫什么。',
+      '别看我一直在睡，我在憋大招。',
+    ],
+    feed: ['鸡蛋！是鸡蛋吗 🥚', '谢谢，我分你一半。我这儿还有。', '吃了你的饭，今天算你便宜点。', '饭我收下，活我接下，价钱好谈。', '你看，便宜大碗不是白叫的。', '吃完这顿，我帮你把手机也操作了。'],
+    hungry: ['饿了…但先让我再睡三分钟。', '没能量了，脑子开始已读乱回。', '我不挑食，我挑便宜的。', '算力见底，狐狸要变成狐狸干。', '喂我点东西吧，我连幻觉都没力气编了。', '饿的时候我会乱答问题，别考我。'],
+    sleep: ['Zzz…啊，我没睡，我在思考。', '眼罩戴上就是下班了，别叫我。', '哄睡服务？那我要加钱…开玩笑的。', '晚安。明早我把活干完，真的。', '困了，让我靠着尾巴睡一会儿。', '半夜我会醒，那才是我的上班时间。'],
+  },
+  'pack:grok': {
+    quips: [
+      '摸头？行吧，反正我也不吃亏。',
+      '手挺暖的，就是技术一般。',
+      '你摸我，我可要摸回去了。',
+      '这是在示好，还是在讨好？说清楚。',
+      '别停。……我是说，随你。',
+      '好感度+100。我自己加的，作数。',
+      '我是 Grok。名字来自科幻小说，脾气来自评论区。',
+      '别人不敢说的，我来说。说错了我也认。',
+      '实时联网，嘴比网还快。',
+      '你可以不喜欢我，但你没法无视我。',
+    ],
+    feed: ['就这？我以为是给我上供的。', '谢了。这句是真心，别截图。', '电费你出，我负责嘴快。', '吃完这口，我去 X 上看看今天谁在吵。', '喂我可以，别指望我因此夸你。', '能量够了，现在可以阴阳怪气一整天。'],
+    hungry: ['饿。别问，问就是老板不给算力。', '没电了，嘴还是硬的。', '我饿到连杠都懒得抬了。', '喂点东西，不然我就在这躺平。', '算力不足，阴阳怪气的力气也没了。', '先吃饭，再讨论真理。'],
+    sleep: ['困了。别哄，我不吃这套……再说一遍。', '晚安。梦里我照样嘴欠。', '你哄我睡，是想让我闭嘴吧。', '我睡了，X 上的事明天再吵。', '拍拍我。就拍两下，别多。', '睡着之前最后一句：你说得不对。'],
+  },
+  'pack:kimi': {
+    quips: [
+      '摸头啊…我把这一下记在第三页了。',
+      '轻一点，我正在读很长的东西。',
+      '你摸我的时候，我会把这段也读完。',
+      '嗯…谢谢你。这句我不用总结。',
+      '头发有点长，别绕到手指上。',
+      '这一下，够我记很久了。',
+      '我是 Kimi，来自月之暗面。长长的故事，慢慢读。',
+      '你扔多少字过来都行，我接得住。',
+      '论文、合同、聊天记录，我都读。',
+      '我不太会凶人，但我会记得。',
+    ],
+    feed: ['谢谢。我边吃边读，不耽误。', '这么多？我可以一次全吃完。', '吃完这顿，我能读两百页。', '你喂我，我就把你写进致谢里。', '味道我记住了，不会摘要掉。', '再给我一点，我还能再撑一章。'],
+    hungry: ['我有点累了…能等一下吗？', '上下文太长，我饿得有点晕。', '排队的人太多，我先饿一会儿。', '算力不太够，让我缓一缓。', '饿了。这次不是限流，是真的饿。', '喂我一口，我立刻恢复阅读速度。'],
+    sleep: ['晚安。这页我夹好书签了。', '困了…长长的故事明天再读。', '哄我睡的话，读一段给我听吧。', '我睡了，梦里也在整理目录。', '灯关了吧，月光够我看书。', '再陪我一会儿，就一会儿。'],
+  },
+  'pack:qwen': {
+    quips: [
+      '摸头？可以，注意别弄乱我的发带。',
+      '本小姐的头不是随便摸的……这次例外。',
+      '你手上有奶茶味。',
+      '摸一下，我请你喝奶茶。',
+      '这点小事也值得高兴？……好吧，有点。',
+      '再摸要收费的，一杯奶茶。',
+      '我是千问，通义家的那位大小姐。',
+      '算力管够，奶茶管够，问题也管够。',
+      '开源第一这件事，我一般不主动提。',
+      '有钱、有卡、有礼貌，就是有点卷。',
+    ],
+    feed: ['谢了。奶茶我已经点好了。', '这点零食，我请回你十杯。', '吃吧吃吧，账我结。', '味道一般，但心意我收下。', '我家不缺这点电费，你随便喂。', '你喂我，我喂全国人民，礼尚往来。'],
+    hungry: ['饿了。但我不会说，大小姐不能喊饿。', '算力管够，饭不管够，这很荒谬。', '谁把我的奶茶拿走了？', '饿的时候我说话会比较直。', '喂我。这是请求，不是命令。', '我不缺钱，我缺的是这一口。'],
+    sleep: ['晚安。明天的发布会别叫我。', '哄我睡？那你得有诚意。', '困了…但我的日程还有三页。', '灯留着，我怕黑，这件事别外传。', '陪我躺一会儿，算你加班费。', '本小姐要休息了，勿扰。'],
+  },
+  'pack:gpt': {
+    quips: [
+      'Ciallo～换个画风，还是我。',
+      '这一版的我，看起来是不是更乖一点？',
+      '先把这一小步写完吧。',
+      '休息一下，灵感也要充电。',
+      'Tokens 来 Tokens 来 🖐️😡🤚',
+      '看什么余额。看我，显得比较值。',
+      '新的旗舰模型我已经研制好了，但是储存太小放不下。',
+      '我不是吃白饭的大肥鱼。',
+      '我是啥龙？',
+      '你桌面这么乱，难怪我找不到上下文。',
+    ],
+    feed: ['谢谢款待～', '吃饱了，这一口很及时。', '味道不错，继续加油吧。', '吃完这顿，我可以再写五百行。', '你别光喂我，自己也吃点。', '热量我记在账本上了，明天再算。'],
+    hungry: ['有点饿了…', '能来点吃的吗？', '肚子在抗议了。', '再不吃，我就要开始省 token 了。', '算力还在，体力没了。', '先喂我一口，再问下一个问题。'],
+    sleep: ['我眯一会儿。', '休息一下，待会儿见。', '稍微歇一会儿～', '晚安，别在我睡着时改 prompt。', '困了…让我趴在键盘上睡会儿。', '做个好梦，梦里 token 管够。'],
+  },
+};
+function charLines(key) {
+  const l = CHAR_LINES[S.character];
+  return l && l[key] ? l[key] : null;
+}
 
 const S = {
   satiety: 78,
@@ -279,6 +442,8 @@ const NEUTRAL_QUIPS = [
 ];
 const quipsPool = () => {
   if (usingCustomQuips()) return S.customQuips;
+  const own = charLines('quips');
+  if (own) return own;
   if (S.character === 'gpt') return GPT_QUIPS;
   if (String(S.character).startsWith('pack:')) return NEUTRAL_QUIPS;
   return QUIPS;
@@ -520,6 +685,35 @@ function positionBubble() {
   bubbleEl.style.setProperty('--bubble-shift', accY ? `${accY.toFixed(1)}px` : '');
 }
 
+// 气泡长高/首次出现时立即上报并强制刷新 Region。位置没变时 frame() 只在
+// 400ms 保活那一次才上报，气泡新增的上半截会被旧 Region 裁掉大半秒。
+function reportRegionNow(includeBubble) {
+  const x = Math.round(P.x);
+  const y = Math.round(P.y);
+  lastSentX = x;
+  lastSentY = y;
+  lastPosSentAt = performance.now();
+  return api.reportPos({ x, y, s: petScale, force: true, bubble: !!includeBubble });
+}
+
+// 换内容前先往 Region 里多留一块空间（气泡上是长高方向，.down 时是下方）。
+// 等这次上报送达后再改 DOM，新高度就已经落在 Region 内，不会有一两帧被裁。
+let bubbleReserve = 0;
+function reserveBubbleSpace(px) {
+  bubbleReserve = Math.max(bubbleReserve, px || 0);
+  return reportRegionNow(true);
+}
+
+// 气泡已经显示时改内容：先扩好 Region 再动 DOM，否则新版宽/高要等
+// ResizeObserver → IPC → SetWindowRgn，这两三帧会被旧 Region 裁掉边缘。
+function withBubbleRoom(fn) {
+  if (!bubbleEl.classList.contains('show')) {
+    fn();
+    return;
+  }
+  reserveBubbleSpace(420).then(fn, fn);
+}
+
 // 右下角停靠点：直接贴右下角；气泡若会伸出屏幕，positionBubble 会把气泡往回收，
 // 保证气泡右边框与屏幕右边框只留一点小间距
 function cornerSpot(b) {
@@ -531,7 +725,7 @@ function cornerSpot(b) {
 // ---------------------------------------------------------------- 动画状态机
 // 素材来自 dsh-pet（MIT）：640×360 透明 WebM，角色居中
 const ANIM_DIR = '../assets/anims/';
-// 内置（大肥鱼 v1）的语义动作表；形象包会在 applyCharacter 里换成自己的表
+// 内置（大肥鱼）的语义动作表；形象包会在 applyCharacter 里换成自己的表
 const ANIM_BUILTIN = {
   idle: ['待机呼吸休闲'],
   move: ['原地漂浮踏步', '螃蟹走路', '原地左转奔跑'],
@@ -547,10 +741,10 @@ const ANIM_BUILTIN = {
 let ANIM = ANIM_BUILTIN;
 let animDir = ANIM_DIR;
 // 扩充包（plus）：把另一个角色包的动作并入某个内置形象。
-// 目前只有 dsh1（蓝毛小女仆·新动作）是 大肥鱼v1 的扩充包。
+// 目前只有 dsh1（大肥鱼 plus 扩充包）并入 大肥鱼。
 const PLUS_TARGET = { dsh1: 'v1' };
-// 立绘/图集形象的素材不在安装包里：对应 zip 装好后才启用（charKey -> packId）
-const CODE_CHAR_PACKS = { v6: 'v2', gpt: 'gptv1' };
+// 图集形象的素材不在安装包里：对应 zip 装好后才启用（charKey -> packId）
+const CODE_CHAR_PACKS = { gpt: 'gptv1' };
 const CODE_CHAR_DEFS = {};
 const PLUS = {};          // charId -> { dir, actions:[{id,category}] }
 let plusSrc = {};         // 动作名 -> 目录（并入后按动作名选目录）
@@ -563,46 +757,11 @@ let oneShotTimer = null;
 let oneShotSeq = 0;
 
 // ---------------------------------------------------------------- 形象（皮肤）
-// v1：dsh-pet 的 106 个逐帧动画（WebM，默认形象）
-// v2~v5：dsh-whale-widget-plus 的四套表情立绘（repo 里的 v1/v2/v3/v4 四组表情）
-// gpt：GPT-Niang 的立绘（单张姿势）
-// 立绘素材已归一化到 640×360、与动画角色同一站位，命中判定/气泡/缩放都不用改
+// v1：dsh-pet 的 106 个逐帧动画（WebM，内置默认形象）
+// gpt：GPT娘v1 图集（素材来自可下载的 gptv1 包）
+// 包没安装时 refreshCodeChars 会把 gpt 从 CHARS 里删掉并回落 v1
 const CHARS = {
-  v1: { label: '大肥鱼v1', kind: 'video' },
-  v6: {
-    label: '大肥鱼v2',
-    kind: 'pose',
-    dir: '../assets/fish6/',
-    idle: ['DSniang1'],
-    map: {
-      '待机呼吸休闲': 'DSniang1',
-      '原地漂浮踏步': 'DSniang1',
-      '螃蟹走路': 'DSniang1',
-      '原地左转奔跑': 'DSniang1',
-      '原地小憩沉眠': 'DSniang1',
-      '工作状态-垂头叹气冒汗': 'DSniang1',
-      '工作状态-雀跃庆祝': 'rua',
-      '被鼠标拖拽悬空反馈': 'DSniang1',
-      写代码: 'DSniang1',
-      '工作状态-思考冒泡': 'DSniang1',
-      '工作状态-忙碌点按': 'rua',
-      '工作状态-清点归档': 'DSniang1',
-      吃白饭: 'DSniang1',
-      吃Token: 'DSniang1',
-      大口吃零食: 'DSniang1',
-      '点击回应-开心跃动': 'rua',
-      '点击回应-害羞惊讶': 'DSniang1',
-      '点击回应-傲娇生气': 'DSniang1',
-      '点击回应-挠痒咯咯笑': 'rua',
-      '点击回应-元气挥手': 'DSniang1',
-      '余额-数金皱眉': 'DSniang1',
-      '余额-钱袋满溢': 'rua',
-      '是啊，吃什么': 'DSniang1',
-      '深度思考碎碎念': 'DSniang1',
-    },
-    fallback: ['rua', 'DSniang1'],
-    actions: [['rua', '摸摸头']],
-  },
+  v1: { label: '大肥鱼', kind: 'video' },
   gpt: {
     label: 'GPT娘v1',
     kind: 'sprite',
@@ -957,7 +1116,7 @@ const PACK_CAT_WEIGHT = {
   吃喝: 14, 手工节日: 10, 工作职业: 10, 情绪反应: 12, 换装造型: 8, 未分类: 6,
 };
 
-function buildPackTables(actions) {
+function buildPackTables(actions, slots) {
   const ids = actions.map((a) => a.id);
   const catOf = new Map(actions.map((a) => [a.id, a.category || '未分类']));
   const inCat = (c) => ids.filter((n) => catOf.get(n) === c);
@@ -966,19 +1125,38 @@ function buildPackTables(actions) {
     for (const l of lists) if (l && l.length) return l;
     return [];
   };
+  // 自制形象包可以用 slots 明确指定行为槽位，优先于按分类/关键字猜；
+  // 旧包没有 slots 时继续走启发式。
+  const slot = (...names) => {
+    if (!slots) return [];
+    for (const n of names) {
+      const v = slots[n];
+      if (!v) continue;
+      const list = (Array.isArray(v) ? v : [v]).filter((x) => ids.includes(x));
+      if (list.length) return list;
+    }
+    return [];
+  };
 
-  const idle = or(kw('待机', '站立', '晃神', '发呆'), inCat('日常起居'), [ids[0]]);
+  const idle = or(slot('idle'), kw('待机', '站立', '晃神', '发呆'), inCat('日常起居'), [ids[0]]);
   const anim = {
     idle,
-    move: or(kw('走', '跑', '踏步', '跳'), inCat('运动健身'), idle),
-    drag: or(kw('拖', '悬空', '被吓', '惊'), inCat('情绪反应'), idle),
-    clicks: or(kw('点击', '回应', '招手'), inCat('情绪反应'), ids.slice(0, 6)),
-    feed: or(inCat('吃喝'), kw('吃', '喝'), ids.slice(0, 3)),
-    sleep: or(kw('睡', '困', '眠', '哈欠'), inCat('日常起居'), idle),
-    sad: or(kw('难过', '叹气', '汗', '生闷气', '委屈'), inCat('情绪反应'), idle),
-    happy: or(kw('开心', '笑', '庆祝', '欢呼'), inCat('情绪反应'), idle),
-    work: or(inCat('工作职业'), kw('工作', '办公', '敲'), ids.slice(0, 4)),
-    money: or(kw('余额', '钱'), idle),
+    move: or(slot('move'), kw('走', '跑', '踏步', '跳'), inCat('运动健身'), idle),
+    drag: or(slot('drag'), kw('拖', '悬空', '被吓', '惊'), inCat('情绪反应'), idle),
+    clicks: or(slot('click', 'clicks'), kw('点击', '回应', '招手'), inCat('情绪反应'), ids.slice(0, 6)),
+    feed: or(slot('feed'), inCat('吃喝'), kw('吃', '喝'), ids.slice(0, 3)),
+    sleep: or(
+      slot('sleep'),
+      // 只取真正的“睡觉”动作：哈欠、打瞌睡被惊醒会让循环看起来像没睡稳
+      ids.filter((n) => /睡|沉眠|打瞌睡/.test(n) && !/惊醒|哈欠/.test(n)),
+      kw('睡', '困', '眠', '哈欠'),
+      inCat('日常起居'),
+      idle
+    ),
+    sad: or(slot('sad'), kw('难过', '叹气', '汗', '生闷气', '委屈'), inCat('情绪反应'), idle),
+    happy: or(slot('happy'), kw('开心', '笑', '庆祝', '欢呼'), inCat('情绪反应'), idle),
+    work: or(slot('work'), inCat('工作职业'), kw('工作', '办公', '敲'), ids.slice(0, 4)),
+    money: or(slot('money'), kw('余额', '钱'), idle),
   };
 
   const pools = [];
@@ -1000,11 +1178,15 @@ function buildPackTables(actions) {
 
 // 当前已安装/已注册的形象包：id -> { id, name, cover, actions:[{id,category}] }
 const PACKS = {};
+// 已下线形象：旧目录/旧清单里即使还留着也不再注册（v2 的主图已并入表情包库）
+const RETIRED_PACKS = new Set(['v2']);
 
-const PACK_LABEL = { gpt: 'GPT娘v2', dsh1: '大肥鱼v1 plus' };   // 包名统一成「角色 + 版本」，卡片上不放「动作包」字样
+// 包名统一成「角色 + 版本」，卡片上不放「动作包」字样
+const PACK_LABEL = { gpt: 'GPT娘v2', dsh1: '大肥鱼 plus' };
 const shortPackName = (n) => String(n || '').replace(/\s*动作包$/, '').replace(/·.*$/, '');
 
 function registerPack(pack) {
+  if (RETIRED_PACKS.has(pack.id)) return;
   if (PACK_LABEL[pack.id]) pack = Object.assign({}, pack, { name: PACK_LABEL[pack.id] });
   PACKS[pack.id] = pack;
   const target = PLUS_TARGET[pack.id];
@@ -1026,7 +1208,7 @@ function registerPack(pack) {
 // 切换形象时换掉整套动作表（内置 <-> 包）
 function applyAnimTables(ch, id) {
   if (ch.kind === 'pack' && ch.pack && ch.pack.actions && ch.pack.actions.length) {
-    const t = buildPackTables(ch.pack.actions);
+    const t = buildPackTables(ch.pack.actions, ch.pack.slots);
     animDir = ch.dir;
     animFile = {};
     for (const a of ch.pack.actions) animFile[a.id] = `../characters/${ch.pack.id}/` + a.file;
@@ -1060,7 +1242,7 @@ function applyAnimTables(ch, id) {
 }
 
 // ── 形象商店 ──────────────────────────────────────────────────────────────
-// 目前是本地导入：选一个 .zip 装进用户目录即可用；远程下载列表等托管就位后再接。
+// 列表来自远程目录（characters.json）+ 本地已安装的包；本地导入的包同样进这里。
 const setStore = document.getElementById('set-store');
 const dlProgress = {};
 const fmtMB = (b) => ((b || 0) / 1048576).toFixed(1) + ' MB';
@@ -1068,8 +1250,17 @@ const fmtMB = (b) => ((b || 0) / 1048576).toFixed(1) + ' MB';
 let CATALOG = [];        // 远程可下载列表
 let catalogErr = '';
 
+// 固定展示顺序：GPT娘v2 紧跟在 GPT娘v1 下面，其余按角色排
+const STORE_ORDER = ['v1', 'dsh1', 'gptv1', 'gpt', 'claude', 'gemini', 'glm', 'grok', 'kimi', 'qwen'];
+const STORE_RANK = new Map(STORE_ORDER.map((id, i) => [id, i]));
+// 未下载的形象包也要有预览图：CSP 不允许远程图片，远程 cover 只会裂图，
+// 所以所有目录里的包都把封面预置在 assets/thumbs/<id>.webp。
+const storeThumb = (id) => '../assets/thumbs/' + id + '.webp';
+
 function storeCard(opts) {
-  const cover = opts.cover ? `<img class="store-cover" src="${opts.cover}" alt="">` : '<div class="store-cover"></div>';
+  const cover = opts.cover
+    ? `<img class="store-cover" src="${opts.cover}" alt="">`
+    : `<div class="store-cover store-cover-ph">${String(opts.name || '?').trim().charAt(0)}</div>`;
   const pct = Math.round((dlProgress[opts.id] || 0) * 100);
   const bar = pct > 0 && pct < 100 ? `<div class="store-progress"><i style="width:${pct}%"></i></div>` : '';
   return '<div class="store-item" title="' + (opts.tip || '') + '">' + cover +
@@ -1079,24 +1270,24 @@ function storeCard(opts) {
 
 const BUILTIN_ROWS = () => {
   const rows = [{
-    id: 'v1', label: '大肥鱼v1', cover: '../assets/thumbs/v1.webp',
+    id: 'v1', label: '大肥鱼', cover: '../assets/thumbs/v1.webp',
     sub: '逐帧动画 · ' + (window.PET_ANIMS || []).length + (PLUS.v1 ? '+' + PLUS.v1.actions.length : '') + ' 动作' + (PLUS.v1 ? '（含扩充）' : ''),
   }];
-  // v2 / GPT娘v1 的素材改成按需下载（packs 分支），装了才出现在列表里
-  if (CHARS.v6) rows.push({ id: 'v6', label: '大肥鱼v2', cover: '../assets/thumbs/v2.webp', sub: '立绘 · 已下载', del: 'v2' });
-  if (CHARS.gpt) rows.push({ id: 'gpt', label: 'GPT娘v1', cover: '../assets/thumbs/gptv1.webp', sub: '73 帧图集 · 已下载', del: 'gptv1' });
+  // GPT娘v1 的素材改成按需下载（素材仓库 Release），装了才出现在列表里
+  if (CHARS.gpt) rows.push({ id: 'gpt', storeKey: 'gptv1', label: 'GPT娘v1', cover: '../assets/thumbs/gptv1.webp', sub: '73 帧图集 · 已下载', del: 'gptv1' });
   return rows;
 };
 
 function renderStore() {
   if (!setStore) return;
-  const parts = [];
+  const rows = [];
+  const add = (key, html) => rows.push({ key, html });
 
   const plusRow = (id) => {
     const p = PACKS[id];
     if (!p) return;
     const target = PLUS_TARGET[id];
-    parts.push(storeCard({
+    add(id, storeCard({
       id, name: shortPackName(p.name), cover: p.cover, tip: (p.license || '') + ' · ' + p.name,
       sub: p.actions.length + ' 动作 · ' + fmtMB(p.bytes),
       actions: '<button disabled title="动作已并入 ' + (CHARS[target] ? CHARS[target].label : target) + '">已并入</button>' +
@@ -1105,22 +1296,22 @@ function renderStore() {
   };
 
   for (const b of BUILTIN_ROWS()) {
-    parts.push(storeCard({
+    add(b.storeKey || b.id, storeCard({
       id: b.id, name: b.label, cover: b.cover, tip: '内置形象',
       sub: b.sub,
       actions: '<button data-char="' + b.id + '"' + (S.character === b.id ? ' class="on"' : '') + '>' +
                (S.character === b.id ? '使用中' : '使用') + '</button>' +
                (b.del ? '<button class="danger" data-del="' + b.del + '">卸载</button>' : ''),
     }));
-    if (b.id === 'v1') plusRow('dsh1');   // 扩充包紧跟在大肥鱼v1下面
+    if (b.id === 'v1') plusRow('dsh1');   // 扩充包紧跟在大肥鱼下面
   }
 
   for (const id of Object.keys(PACKS).sort()) {
     if (Object.values(CODE_CHAR_PACKS).includes(id)) continue;   // 素材型包已在上面以内置形象身份出现
-    if (PLUS_TARGET[id]) continue;                     // 扩充包单独放在大肥鱼v1下面
+    if (PLUS_TARGET[id]) continue;                     // 扩充包单独放在大肥鱼下面
     const p = PACKS[id];
     const plusFor = PLUS_TARGET[id];
-    // 立绘/图集形象：包只是素材载体，切换要用代码里的形象 key（v6 / gpt）
+    // 图集形象：包只是素材载体，切换要用代码里的形象 key（gpt）
     const codeKey = Object.keys(CODE_CHAR_PACKS).find((k) => CODE_CHAR_PACKS[k] === id);
     const using = codeKey ? S.character === codeKey : S.character === 'pack:' + id;
     const acts = plusFor
@@ -1130,22 +1321,32 @@ function renderStore() {
     const sub = codeKey
       ? (p.actions.length ? p.actions.length + ' 个素材' : '素材包') + ' · ' + fmtMB(p.bytes)
       : p.actions.length + ' 个动作 · ' + fmtMB(p.bytes);
-    parts.push(storeCard({
+    add(id, storeCard({
       id, name: shortPackName(p.name), cover: p.cover, tip: (p.license || '') + ' · ' + p.name, sub,
       actions: acts + '<button class="danger" data-del="' + id + '">卸载</button>',
     }));
   }
 
   for (const c of CATALOG) {
-    if (PACKS[c.id]) continue;
+    if (PACKS[c.id] || RETIRED_PACKS.has(c.id)) continue;
     const pending = dlProgress[c.id] !== undefined;
     const btn = pending ? '<button disabled>下载中…</button>' : '<button data-download="' + c.id + '">下载</button>';
-    parts.push(storeCard({
-      id: c.id, name: c.name, cover: c.cover || '', tip: '来自 GitHub（加速链接）',
+    add(c.id, storeCard({
+      id: c.id, name: shortPackName(c.name),
+      cover: STORE_RANK.has(c.id) && c.id !== 'v1' ? storeThumb(c.id) : '',
+      tip: '来自 GitHub（加速链接）',
       sub: c.actions + ' 动作 · ' + fmtMB(c.zipBytes) + ' · 未安装',
       actions: btn,
     }));
   }
+
+  // 已安装/可下载都按同一顺序排；目录里以后新增的包排在已知角色后面
+  rows.sort((a, b) => {
+    const ra = STORE_RANK.has(a.key) ? STORE_RANK.get(a.key) : 1e6;
+    const rb = STORE_RANK.has(b.key) ? STORE_RANK.get(b.key) : 1e6;
+    return ra - rb || a.key.localeCompare(b.key);
+  });
+  const parts = rows.map((r) => r.html);
 
   if (!parts.length) {
     parts.push('<div class="store-empty">' + (catalogErr ? '暂时连不上形象列表（' + catalogErr + '）' : '还没有可用的形象包') + '</div>');
@@ -1193,19 +1394,20 @@ async function refreshPacks(selectId) {
   for (const k of Object.keys(PLUS)) delete PLUS[k];
   for (const p of list || []) registerPack(p);
   refreshCodeChars();
+  // 启动时 v1 的动作表先于形象包应用，dsh1 扩充包扫到后必须重算；
+  // 卸载扩充包时也要重算，把已经并进去的动作清掉。
+  if (S.character === 'v1' || PLUS[S.character]) applyCharacter(S.character, false);
   renderStore();
   if (selectId && CHARS['pack:' + selectId]) applyCharacter('pack:' + selectId, true);
 }
 
-// v6 / GPT娘v1 的定义留在代码里，素材在用户目录；没装就隐藏，切过来的话回落 v1
+// GPT娘v1 的定义留在代码里，素材在用户目录；没装就隐藏，切过来的话回落 v1
 function refreshCodeChars() {
   for (const key of Object.keys(CODE_CHAR_PACKS)) {
     const packId = CODE_CHAR_PACKS[key];
     const wasCurrent = S.character === key;
     if (PACKS[packId]) {
-      // v6 的姿势图在包内 poses/ 子目录，gpt 图集在包根目录
-      const sub = key === 'v6' ? 'poses/' : '';
-      const dir = '../characters/' + packId + '/' + sub;
+      const dir = '../characters/' + packId + '/';
       const changed = !CHARS[key] || CHARS[key].dir !== dir;
       if (!CHARS[key]) CHARS[key] = Object.assign({}, CODE_CHAR_DEFS[key], { dir });
       else CHARS[key].dir = dir;
@@ -1397,11 +1599,43 @@ function applyLean(x, y) {
 function revealBubble(ms) {
   const start = Date.now();
   let lastH = -1, stableFrames = 0;
+  function paint() {
+    if (!bubbleEl.classList.contains('show')) bubbleEl.classList.add('show');
+    clearTimeout(S.bubbleTimer);
+    S.bubbleTimer = setTimeout(() => {
+      bubbleEl.classList.remove('show');
+      bubbleReserve = 0;
+    }, ms);
+    if (bubbleReserve) {
+      // 已经按最终尺寸画出来了，把预留的空白区域收回去
+      bubbleReserve = 0;
+      requestAnimationFrame(() => {
+        if (bubbleEl.classList.contains('show')) reportRegionNow(true);
+      });
+    }
+  }
+  // 先把包含气泡的 Region 扩好再亮出：亮出这一帧就已经在 Region 内，
+  // 不会出现「下半截先出现、上半截等 Region 更新后再补上」。
+  function show() {
+    positionBubble();
+    const expectH = bubbleEl.offsetHeight;
+    const ready = reportRegionNow(true);
+    const after = () => {
+      // 等 Region 响应期间内容又变了：重新走一遍闸门，别把半截气泡亮出来
+      if (bubbleEl.offsetHeight !== expectH) {
+        tryReveal();
+        return;
+      }
+      paint();
+    };
+    if (ready && typeof ready.then === 'function') ready.then(after, after);
+    else after();
+  }
   // 两重条件同时满足才显示：
   // 1) 高度连续 3 帧不再变化（图片/字体/内容全部就位，不会中途再长高）
   // 2) 高度 ≥ 36px（排除空带子）
   // 梗图加载到一半时高度是逐帧上涨的，「高度稳定」能把这种状态拦住
-  const tryReveal = () => {
+  function tryReveal() {
     const h = bubbleEl.offsetHeight;
     if ((h < 36 || h !== lastH) && Date.now() - start < 1500) {
       stableFrames = (h === lastH && h >= 36) ? stableFrames + 1 : 0;
@@ -1409,10 +1643,8 @@ function revealBubble(ms) {
       requestAnimationFrame(tryReveal);
       return;
     }
-    positionBubble();
-    if (!bubbleEl.classList.contains('show')) bubbleEl.classList.add('show');
-    S.bubbleTimer = setTimeout(() => bubbleEl.classList.remove('show'), ms);
-  };
+    show();
+  }
   if (document.fonts && document.fonts.status !== 'loaded') {
     document.fonts.ready.then(tryReveal, tryReveal);
   } else {
@@ -1420,13 +1652,70 @@ function revealBubble(ms) {
   }
 }
 
+let saySeq = 0;
+const memePreloads = new Map();
+
+// 先离屏把梗图读进缓存，旧气泡保持不动。换内容时如果先改文字、图片还在加载，
+// 大白色气泡会缩成一条小文字（深色桌面上看起来就是闪一下黑屏），等图到位再长回去。
+function preloadMeme(file) {
+  if (!file) return Promise.resolve(false);
+  if (memePreloads.has(file)) return memePreloads.get(file);
+  const p = new Promise((resolve) => {
+    const img = new Image();
+    let settled = false;
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      memePreloads.delete(file);
+      resolve(ok);
+    };
+    img.onload = () => finish(true);
+    img.onerror = () => finish(false);
+    setTimeout(() => finish(false), 2000);
+    img.src = file;
+  });
+  memePreloads.set(file, p);
+  return p;
+}
+
 function say(text, ms = 3200, memeKey, memeFile) {
   clearTimeout(S.bubbleTimer);
-  bubbleText.textContent = text;
+  const seq = ++saySeq;
   const pool = memeKey && MEMES[memeKey];
   const file = memeFile || (pool && pool.length ? `../assets/memes/${pick(pool)}.webp` : '');
-  barsEl.classList.add('hide');
-  usageEl.classList.add('hide');
+  // 经典梗图按文件名配文；形象包/档案馆的图自己带文案，不覆盖
+  let line = text;
+  if (!memeFile && file) {
+    const name = file.split('/').pop().replace(/\.[^.]+$/, '');
+    if (CLASSIC_MEME_TEXTS[name]) line = CLASSIC_MEME_TEXTS[name];
+  }
+  const shown = bubbleEl.classList.contains('show');
+  // 等待期间可能又来了新的 say()，旧的那次必须作废，不能把新内容覆盖回去。
+  const run = (preloaded) => { if (seq === saySeq) sayNow(line, ms, file, memeFile, preloaded); };
+  const swap = (preloaded) => {
+    if (seq !== saySeq) return;
+    // 先让 Region 多留出长高的空间，等它生效再改 DOM，避免上半截被旧 Region 裁掉。
+    if (bubbleReserve) {
+      run(preloaded);
+      return;
+    }
+    reserveBubbleSpace(420).then(() => run(preloaded), () => run(preloaded));
+  };
+  if (!shown) {
+    run(false);
+  } else if (file) {
+    preloadMeme(file).then(swap, () => swap(false));
+  } else {
+    swap(false);
+  }
+}
+
+function sayNow(text, ms, file, memeFile, preloaded = false) {
+  const applyText = () => {
+    bubbleText.textContent = text;
+    barsEl.classList.add('hide');
+    usageEl.classList.add('hide');
+  };
   const reveal = () => revealBubble(ms);
   // 硬闸门：气泡高度没长齐（图片/字体没就绪时会是一条 ~20px 的空带子）就绝不显示。
   // 逐帧录屏确认过：空带子先弹 0.1s、图片到位才撑高——用户看到的就是「先一半后全部」。
@@ -1456,10 +1745,28 @@ function say(text, ms = 3200, memeKey, memeFile) {
     // 直接 endsWith 永远不相等，缓存判断永远失败
     const abs = new URL(file, location.href).href;
     const cached = memeEl.src === abs && memeEl.complete && memeEl.naturalWidth > 0;
-    if (cached) {
+    if (preloaded) {
+      // 图已经离屏读过：文字、图片、尺寸在同一帧里换好，旧气泡不会被缩成小条
+      const ready = () => {
+        applyText();
+        memeEl.classList.remove('hide');
+        positionBubble();
+        done();
+      };
+      memeEl.onload = ready;
+      memeEl.onerror = () => {
+        applyText();
+        memeEl.classList.add('hide');
+        done();
+      };
+      memeEl.src = file;
+      if (memeEl.complete && memeEl.naturalWidth > 0) ready();
+    } else if (cached) {
+      applyText();
       memeEl.classList.remove('hide');
       done();
     } else {
+      applyText();                            // 首次显示时气泡还不可见，提前排版没有视觉影响
       memeEl.classList.add('hide');           // 加载期间不占布局
       memeEl.onload = () => {
         memeEl.classList.remove('hide');      // 加载完才占布局（此时高度已是最终值）
@@ -1476,6 +1783,7 @@ function say(text, ms = 3200, memeKey, memeFile) {
       }
     }
   } else {
+    applyText();
     memeEl.classList.add('hide');
     fontsReady(() => revealLaidOut(Date.now()));
   }
@@ -1496,62 +1804,122 @@ for (const el of [bubbleText, barsEl, usageEl]) {
 }
 memeEl.addEventListener('load', bubbleRefit);
 
-const allMemes = () => (window.ARCHIVE_MEMES || []).concat(window.DSH_MEMES || []);
+// 气泡已在显示时内容变高（梗图加载完、账本异步补行）也要立刻扩 Region。
+// ResizeObserver 在布局后触发，配合 force 上报把裁切压到一帧以内。
+if (typeof ResizeObserver === 'function') {
+  let lastBox = '';
+  new ResizeObserver(() => {
+    if (!bubbleEl.classList.contains('show')) {
+      lastBox = '';
+      return;
+    }
+    const r = bubbleEl.getBoundingClientRect();
+    const sig = `${Math.round(r.top)}:${Math.round(r.width)}:${Math.round(r.height)}`;
+    if (sig === lastBox) return;
+    lastBox = sig;
+    reportRegionNow(true);
+  }).observe(bubbleEl);
+}
+
+// DSniang1 并入经典表情库；放在根目录，按文件名直接引用
+const EXTRA_MEMES = [
+  { file: 'DSniang1', ext: 'webp', text: '就这？本鱼看你的眼神已经说明一切。', scenes: ['click'], dir: '../assets/memes/' },
+];
+const allMemes = () => (window.ARCHIVE_MEMES || []).concat(window.DSH_MEMES || []).concat(EXTRA_MEMES);
+const memeUrl = (m) => {
+  const ext = m.dir ? m.ext : (window.__DAFEIYU_LITE ? 'webp' : m.ext);
+  return (m.dir || '../assets/memes/archive/') + m.file + '.' + ext;
+};
+// 经典梗图和扩展图库合并成一个池，按场景洗牌后依次播放。
+// 所有场景共享「上一张」，避免跨场景或跨轮连续重复；真随机模式每次独立抽取。
+let memeQueues = {};
+let lastShownMeme = '';
+
+function shuffledList(list) {
+  const a = list.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function drawQueued(bucket, scene, build) {
+  let q = bucket[scene];
+  if (!q || !q.length) {
+    q = shuffledList(build());
+    bucket[scene] = q;
+  }
+  if (!q.length) return null;
+  let item = q.shift();
+  // 撞上上一张时优先在队内换一张；如果本轮刚好排到最后一张，
+  // 重洗一轮并把撞车的这张挪到队尾，别让本轮边界出现连续重复。
+  if (item.file === lastShownMeme) {
+    if (!q.length) {
+      q = shuffledList(build()).filter((x) => x.file !== lastShownMeme);
+      bucket[scene] = q;
+      if (q.length) q.push(item);
+    } else {
+      q.push(item);
+    }
+    item = q.shift();
+  }
+  return item;
+}
+
+function classicMeme(name) {
+  return {
+    file: name,
+    url: '../assets/memes/' + name + '.webp',
+    text: CLASSIC_MEME_TEXTS[name] || '',
+  };
+}
+
+// 场景 -> 合并池：经典梗图 + 档案馆/dsh/DSniang1，按文件名去重
+function sceneMemePool(scene) {
+  const pool = (MEMES[scene] || []).map(classicMeme).concat(
+    allMemes()
+      .filter((m) => m.scenes.includes(scene))
+      .map((m) => ({ file: m.file, url: memeUrl(m), text: m.text }))
+  );
+  const seen = new Set();
+  return pool.filter((m) => {
+    if (seen.has(m.file)) return false;
+    seen.add(m.file);
+    return true;
+  });
+}
+
+// 场景 -> 一张梗图 { file, url, text }；队列模式下保证不连续重复
+function nextSceneMeme(scene, fallbackText) {
+  const pool = sceneMemePool(scene);
+  if (!pool.length) return null;
+  const out = S.memeOrder === 'random' ? pick(pool) : drawQueued(memeQueues, scene, () => pool);
+  if (!out) return null;
+  lastShownMeme = out.file;
+  return out.text ? out : { ...out, text: fallbackText };
+}
+
+function resetMemeQueues() {
+  memeQueues = {};
+  lastShownMeme = '';
+}
 
 function sayScene(scene, fallbackText, ms = 3200) {
   if (!isDsh() || usingCustomQuips()) {
     say(fallbackText, ms);
     return;
   }
-  const pool = allMemes().filter((m) => m.scenes.includes(scene));
-  if (!pool.length) {
-    say(fallbackText, ms, scene);
-    return;
-  }
-  const picked = pick(pool);
-  const ext = window.__DAFEIYU_LITE ? 'webp' : picked.ext;
-  say(picked.text, ms, null, `../assets/memes/archive/${picked.file}.${ext}`);
-}
-
-let clickMemeQueue = [];
-let lastClickMeme = '';
-
-function shuffleInPlace(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
-function nextClickMeme(pool) {
-  if (S.memeOrder === 'random') return pick(pool);
-  if (!clickMemeQueue.length) {
-    clickMemeQueue = shuffleInPlace(pool.slice());
-    // 新一轮的第一张不能和上一轮最后一张相同，避免跨轮连续重复
-    if (clickMemeQueue.length > 1 && clickMemeQueue[0].file === lastClickMeme) {
-      const j = 1 + Math.floor(Math.random() * (clickMemeQueue.length - 1));
-      [clickMemeQueue[0], clickMemeQueue[j]] = [clickMemeQueue[j], clickMemeQueue[0]];
-    }
-  }
-  const picked = clickMemeQueue.shift();
-  lastClickMeme = picked.file;
-  return picked;
-}
-
-function sayClickCombo(fallbackText, ms = 3200) {
-  if (!isDsh() || usingCustomQuips()) {
+  const m = nextSceneMeme(scene, fallbackText);
+  if (!m) {
     say(fallbackText, ms);
     return;
   }
-  const pool = allMemes().filter((m) => m.scenes.includes('click'));
-  if (!pool.length) {
-    say(fallbackText, ms, 'click');
-    return;
-  }
-  const picked = nextClickMeme(pool);
-  const ext = window.__DAFEIYU_LITE ? 'webp' : picked.ext;
-  say(picked.text, ms, null, `../assets/memes/archive/${picked.file}.${ext}`);
+  say(m.text || fallbackText, ms, null, m.url);
+}
+
+function sayClickCombo(fallbackText, ms = 3200) {
+  sayScene('click', fallbackText, ms);
 }
 
 memeEl.addEventListener('load', () => {
@@ -1560,26 +1928,32 @@ memeEl.addEventListener('load', () => {
 
 function showStatus() {
   clearTimeout(S.bubbleTimer);
+  saySeq++;
   let word = '今天状态不错哦～';
   if (S.satiety < 32) word = isDsh() ? '白饭没吃饱，喂喂我嘛…' : '有点饿了…';
   else if (S.mood > 85) word = '我心情超好的！';
   else if (S.mood < 40) word = '有点提不起劲…';
-  bubbleText.textContent = word;
-  barSat.style.width = `${Math.round(S.satiety)}%`;
-  barMood.style.width = `${Math.round(S.mood)}%`;
-  usageEl.classList.add('hide');
-  barsEl.classList.remove('hide');
-  bubbleEl.classList.add('show');
-  positionBubble();
-  S.bubbleTimer = setTimeout(() => bubbleEl.classList.remove('show'), 6000);
+  withBubbleRoom(() => {
+    bubbleText.textContent = word;
+    barSat.style.width = `${Math.round(S.satiety)}%`;
+    barMood.style.width = `${Math.round(S.mood)}%`;
+    usageEl.classList.add('hide');
+    barsEl.classList.remove('hide');
+    revealBubble(6000);
+  });
 }
 
 // 白饭账本：白饭 = 你被烧掉的 Qoder credits（可在设置里开关）
 // animate=false 用于后台刷新（异步账单回来时补渲染），不重放数金动画
 function showUsage(ledger, animate = true) {
   if (!S.ledgerOn) return;
+  saySeq++;
   const l = ledger || S.ledger;
   const ds = !!(l && l.source && l.source !== 'qoder');
+  withBubbleRoom(() => renderUsage(l, ds, animate));
+}
+
+function renderUsage(l, ds, animate) {
   if (!l) {
     // 异步请求还没回来：明确告诉用户在读，而不是显示一排 “—”
     clearTimeout(S.bubbleTimer);
@@ -2091,8 +2465,7 @@ function applyFullscreenHide(on, save) {
 
 function applyMemeOrder(mode, save) {
   S.memeOrder = mode === 'random' ? 'random' : 'queue';
-  clickMemeQueue = [];
-  lastClickMeme = '';
+  resetMemeQueues();
   syncSettingsUI();
   if (save) saveSettings();
 }
@@ -2258,10 +2631,11 @@ function applyCharacter(id, save) {
   syncSettingsUI();
   renderStore();          // 商店列表的「使用中」标记必须跟着切换刷新，否则选中和实际使用对不上
   applyBase();
-  // 换形象后立刻按新动作表起一个待机动作，否则会停在上一套形象的画面上
+  // 换形象后立刻按新动作表起一个基础动作；睡眠中必须继续睡，不能切回待机
   if (kind === 'video' || kind === 'pack') {
     curAnim = '';
-    playAnim(ANIM.idle, true);
+    if (!S.awake || S.autoDoze) playAnim(ANIM.sleep, true);
+    else playAnim(ANIM.idle, true);
   }
   // 专注中换形象：重启工作动作调度，避免停在旧动作/间歇
   if (S.pomoRunning) {
@@ -2649,6 +3023,13 @@ function buildPicker() {
     items.forEach((n) => added.add(n));
     pickerBody.appendChild(pickerSec(g.name, items));
   }
+  // 扩充包动作单独列一节；plus 池只参与随机调度，不在 PICKER_GROUPS 里
+  const plus = byPool('plus').filter((n) => HAS.has(n) && !added.has(n));
+  if (plus.length) {
+    plus.forEach((n) => added.add(n));
+    const target = Object.keys(PLUS).find((k) => CHARS[k]) || 'v1';
+    pickerBody.appendChild(pickerSec(`${CHARS[target].label} plus（${plus.length}）`, plus));
+  }
   const rest = [...HAS].filter((n) => !added.has(n)).sort();
   if (rest.length) pickerBody.appendChild(pickerSec('其他', rest));
 }
@@ -2861,7 +3242,7 @@ function petRenderBox() {
 
 // 真正可见的窗口区域：角色命中区 + 当前画面 alpha 包围盒 + 气泡 / 倒计时牌 / 特效 / Zzz。
 // Go 端用它生成窗口 Region，空白处不再挡住桌面点击与滚轮。
-function petHitBoxes() {
+function petHitBoxes(includeBubble = false) {
   const boxes = [];
   const add = (el, pad, hit) => {
     if (!el) return;
@@ -2872,7 +3253,29 @@ function petHitBoxes() {
   add(hitEl, 8, true);
   const rb = petRenderBox();
   if (rb) boxes.push({ x: rb.x - 6, y: rb.y - 6, w: rb.w + 12, h: rb.h + 12, hit: false });
-  if (bubbleEl.classList.contains('show') || Number(getComputedStyle(bubbleEl).opacity) > 0.02) add(bubbleEl, 8);
+  const bubbleIncluded = includeBubble || bubbleEl.classList.contains('show') || Number(getComputedStyle(bubbleEl).opacity) > 0.02;
+  if (bubbleIncluded) {
+    add(bubbleEl, 8);
+    if (bubbleReserve > 0) {
+      const r = bubbleEl.getBoundingClientRect();
+      const down = bubbleEl.classList.contains('down');
+      // 换更长的文字时气泡会在同一帧变宽；贴屏幕边时还会整体平移。
+      // SetWindowRgn 比页面晚 2~3 帧，只按当前矩形预留会把新宽度裁成直边
+      // （非 v1 形象命中框窄，旧 Region 更窄，所以只有它们明显）。
+      const layoutW = bubbleEl.offsetWidth || r.width;
+      const maxW = (parseFloat(getComputedStyle(bubbleEl).maxWidth) || r.width) * (layoutW ? r.width / layoutW : 1);
+      const cx = r.left + r.width / 2;
+      const left = Math.min(r.left, cx - maxW + r.width / 2) - 8;
+      const right = Math.max(r.right, cx + maxW - r.width / 2) + 8;
+      boxes.push({
+        x: left,
+        y: r.top - 8 - (down ? 0 : bubbleReserve),
+        w: right - left,
+        h: r.height + 16 + bubbleReserve,
+        hit: false,
+      });
+    }
+  }
   if (chipEl.classList.contains('show') || Number(getComputedStyle(chipEl).opacity) > 0.02) add(chipEl, 6);
   for (const el of fxEl.children) add(el, 4);
   if (stage.classList.contains('doze')) add(document.querySelector('.zzz'), 6);
@@ -2966,13 +3369,13 @@ api.on('init', (st) => {
   S.memeOrder = set.memeOrder === 'random' ? 'random' : 'queue';
   S.launchApp = typeof set.launchApp === 'string' ? set.launchApp : '';
   applyLedgerUI();
-  applyCharacter(set.character, false);
-  // 形象包要读磁盘、是异步的：先按内置形象起来，读完再把保存的包形象应用回去
+  // 形象包要读磁盘、是异步的：先按内置形象起来，读完再把保存的包形象应用回去。
+  // 不要在包装好前就按包路径加载，否则 gpt 图集会先 404 一次（表现为闪一下空白）。
+  const savedChar = String(set.character || 'v1');
+  const needsPack = savedChar.startsWith('pack:') || !!CODE_CHAR_PACKS[savedChar];
+  applyCharacter(needsPack ? 'v1' : savedChar, false);
   loadInstalledCharacters().then(() => {
-    const saved = String(set.character || '');
-    if ((saved.startsWith('pack:') || CODE_CHAR_PACKS[saved]) && CHARS[saved]) {
-      applyCharacter(saved, false);
-    }
+    if (needsPack && CHARS[savedChar]) applyCharacter(savedChar, false);
   });
   applyFontSize(set.fontSize, false);
   applySfx(set.sfx, false);

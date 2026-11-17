@@ -26,16 +26,33 @@ jobs:
         shell: pwsh
         run: |
           $pkg = (Get-Content package.json | ConvertFrom-Json).version
+          $lock = (Get-Content package-lock.json | ConvertFrom-Json).version
           $go = (Select-String -Path wails/main.go -Pattern 'var Version = "([^"]+)"').Matches[0].Groups[1].Value
-          if ($pkg -ne $go) {
-            Write-Error "package.json 版本 $pkg 与 wails/main.go 版本 $go 不一致"
+          if ($pkg -ne $go -or $pkg -ne $lock) {
+            Write-Error "版本不一致：package.json=$pkg package-lock.json=$lock wails/main.go=$go"
             exit 1
           }
           Write-Host "版本一致：$pkg"
 
+      - name: 脚本语法检查
+        run: |
+          node --check renderer/pet.js
+          node --check wails/frontend/api.js
+          python -c "import ast,glob;[ast.parse(open(f,encoding='utf-8').read(),f) for f in glob.glob('tools/*.py')+glob.glob('tools/character-pack/*.py')]"
+
       # wails/frontend/dist 是 go:embed 的依赖，必须先由脚本生成
       - name: 生成前端资源
         run: node tools/wails-prepare.js
+
+      - name: gofmt 检查
+        working-directory: wails
+        shell: pwsh
+        run: |
+          $files = gofmt -l .
+          if ($files) {
+            Write-Error "以下 Go 文件未格式化：`n$files"
+            exit 1
+          }
 
       - name: go vet
         working-directory: wails

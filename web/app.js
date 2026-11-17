@@ -5,62 +5,70 @@
 
   const characters = {
     v1: {
-      name: "大肥鱼 v1",
+      name: "大肥鱼",
       tag: "逐帧动画",
-      desc: "106 个动作，从待机、吃饭到写代码和放烟花。",
+      desc: "106 个动作，从待机、吃饭到写代码和放烟花；加装 plus 后扩充到 268 个。",
       type: "video",
       src: "assets/chars/v1.webm",
     },
-    v2: {
-      name: "大肥鱼 v2",
-      tag: "18 种表情",
-      desc: "半身表情立绘，安安静静待在屏幕边上。",
-      type: "image",
-      src: "assets/chars/v2.webp",
-    },
-    v3: {
-      name: "大肥鱼 v3",
-      tag: "32 种表情",
-      desc: "表情更丰富，开心、害羞和生气都写在脸上。",
-      type: "image",
-      src: "assets/chars/v3.webp",
-    },
-    v4: {
-      name: "大肥鱼 v4",
-      tag: "32 种姿势",
-      desc: "全身立绘，伸懒腰、吃蛋糕，偶尔偷偷看你。",
-      type: "image",
-      src: "assets/chars/v4.webp",
-    },
-    v5: {
-      name: "大肥鱼 v5",
-      tag: "16 种姿势",
-      desc: "打工、摸鱼、喝奶茶，日常感满满。",
-      type: "image",
-      src: "assets/chars/v5.webp",
-    },
-    v6: {
-      name: "大肥鱼 v6",
-      tag: "2 种姿势",
-      desc: "来自余额鲸的平静立绘，还有摸摸头。",
-      type: "image",
-      src: "assets/chars/v6.webp",
-    },
-    gpt: {
-      name: "GPT 娘",
+    gptv1: {
+      name: "GPT娘v1",
       tag: "73 帧图集",
       desc: "白发龙娘加专属语录，待机、奔跑、挥手和 16 方向视线。",
       type: "image",
-      src: "assets/chars/gpt.webp",
+      src: "assets/chars/gptv1.webp",
     },
-    gpt2: {
-      name: "GPT娘 v2",
-      tag: "8 种表情 · 测试",
-      desc: "成人设定的表情卡，微笑、害羞、鼓腮和认真都写在脸上。",
+    gptv2: {
+      name: "GPT娘v2",
+      tag: "逐帧动画",
+      desc: "92 个动作，按需下载；从吃饭、节日到工作状态都有自己的回应。",
       type: "image",
-      src: "assets/chars/gpt2.webp",
+      src: "assets/chars/gptv2.webp",
+    },
+    claude: {
+      name: "Claude",
+      tag: "逐帧动画",
+      desc: "166 个动作，规矩多、爱审查的 Claude 娘，台词自带东八区自嘲。",
+      type: "image",
+      src: "assets/chars/claude.webp",
+    },
+    gemini: {
+      name: "Gemini",
+      tag: "逐帧动画",
+      desc: "100 个动作，哈基米猫娘；吃喝、玩耍、节日和工作都有自己的动作。",
+      type: "image",
+      src: "assets/chars/gemini.webp",
+    },
+    glm: {
+      name: "GLM",
+      tag: "逐帧动画",
+      desc: "97 个动作，嗜睡蓝狐娘；才艺、礼仪、余额和碎碎念一应俱全。",
+      type: "image",
+      src: "assets/chars/glm.webp",
+    },
+    grok: {
+      name: "Grok",
+      tag: "逐帧动画",
+      desc: "106 个动作，金发小魔女；嘴欠、实时联网，连余额都带着嘲讽。",
+      type: "image",
+      src: "assets/chars/grok.webp",
+    },
+    kimi: {
+      name: "Kimi",
+      tag: "逐帧动画",
+      desc: "105 个动作，星芒小女仆；长文本与月之暗面的日常。",
+      type: "image",
+      src: "assets/chars/kimi.webp",
+    },
+    qwen: {
+      name: "Qwen",
+      tag: "逐帧动画",
+      desc: "106 个动作，算力管够的大小姐；情绪、才艺、吃喝与工作状态都有覆盖。",
+      type: "image",
+      src: "assets/chars/qwen.webp",
     },
   };
+
 
   const video = document.getElementById("character-video");
   const image = document.getElementById("character-image");

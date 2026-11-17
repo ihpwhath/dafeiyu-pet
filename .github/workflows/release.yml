@@ -6,6 +6,11 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: '要构建并发布的 tag（例如 v1.6.0）'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -18,8 +23,12 @@ jobs:
       # 素材脚本会打印中文文件名，CI 的 Python 默认 cp1252 会抛 UnicodeEncodeError
       PYTHONIOENCODING: utf-8
       PYTHONUTF8: '1'
+      # 手动触发时用输入的 tag，push tag 时用 ref_name
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - uses: actions/setup-go@v5
         with:
@@ -63,7 +72,11 @@ jobs:
         shell: pwsh
         run: |
           $pkg = (Get-Content package.json | ConvertFrom-Json).version
-          $tag = "${{ github.ref_name }}".TrimStart('v')
+          $tag = "$env:TAG".TrimStart('v')
+          if (-not $tag) {
+            Write-Error "没有拿到 tag；手动触发时请在输入框填写完整 tag（例如 v1.6.0）"
+            exit 1
+          }
           if ($pkg -ne $tag) {
             Write-Error "tag $tag 与 package.json 版本 $pkg 不一致"
             exit 1
@@ -91,9 +104,22 @@ jobs:
         shell: pwsh
         run: Get-ChildItem dist | Format-Table Name, Length
 
+      - name: 生成校验和
+        shell: pwsh
+        run: |
+          Get-ChildItem dist/*-setup.exe | ForEach-Object {
+            "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
+          } | Set-Content -Encoding utf8NoBOM dist/SHA256SUMS.txt
+
       - name: 发布到 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*-setup.exe
+          tag_name: ${{ env.TAG }}
+          name: ${{ env.TAG }}
+          files: |
+            dist/*-setup.exe
+            dist/SHA256SUMS.txt
           generate_release_notes: true
+          # 带 -beta / -rc 的 tag 自动标为预发布
+          prerelease: ${{ contains(env.TAG, '-') }}
           fail_on_unmatched_files: false

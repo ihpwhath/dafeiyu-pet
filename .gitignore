@@ -12,6 +12,10 @@ icon-candidates/
 # 日志
 *.log
 
+# Python 缓存
+__pycache__/
+*.pyc
+
 # 打包脚本的临时配置
 .build-config.json
 .font-chars.txt

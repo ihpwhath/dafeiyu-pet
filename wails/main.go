@@ -23,7 +23,7 @@ import (
 )
 
 // Version 由 tools/wails-build.js 按 package.json 同步；开发期用测试版号，发布时用正式版号。
-var Version = "1.5.0-beta1"
+var Version = "1.5.0"
 
 // Variant 由构建脚本用 -ldflags 注入（full / lite）。
 var Variant = "full"
@@ -402,17 +402,10 @@ func (a *App) planQuota() float64 { return a.getFloat("planQuota", 0) }
 
 func (a *App) charID() string {
 	v := a.getString("character", "v1")
-	if v == "whale1" {
+	if v == "whale1" || v == "whale2" || !validChar(v) {
 		return "v1"
 	}
-	if v == "whale2" {
-		return "v5"
-	}
-	switch v {
-	case "v1", "v2", "v3", "v4", "v5", "v6", "gpt", "gpt2":
-		return v
-	}
-	return "v1"
+	return v
 }
 
 func (a *App) fontSize() float64 { return clampF(a.getFloat("fontSize", 1), 0.8, 1.4) }
@@ -482,14 +475,14 @@ func (a *App) launchLinkedApp() {
 
 // ---------------- 设置/统计接口 ----------------
 
-func (a *App) ReportPos(x, y, s float64, boxesJSON string) {
+func (a *App) ReportPos(x, y, s float64, boxesJSON string, force bool) {
 	a.mu.Lock()
 	// 前端每 50~100ms 上报一次；桌宠静止时位置和命中框完全不变，
 	// 这种上报直接丢掉，省掉每秒二十次 JSON 解析与 SetWindowRgn（GDI 区域反复创建）。
 	same := a.petInit && a.lastBoxes == boxesJSON &&
 		int(a.petX) == int(x) && int(a.petY) == int(y) &&
 		(s <= 0 || a.petScale == clampF(s, 0.6, 1.6))
-	if same {
+	if same && !force {
 		a.mu.Unlock()
 		return
 	}
@@ -523,8 +516,9 @@ func (a *App) ReportPos(x, y, s float64, boxesJSON string) {
 		a.saveState()
 	}
 	// 位置驱动的 Region 更新走节流（80ms 一次足够，移动速度远低于这个粒度）；
-	// 面板/拖拽结束等几何突变仍由 SetPanel / SetDragging 以 force 立即刷新。
-	a.updateWindowRegion(false)
+	// 气泡显示 / 改尺寸等几何突变会带 force，必须绕过节流当场生效，
+	// 否则 SetWindowRgn 落后两三帧，首次亮出的气泡上半截会被旧 Region 裁掉。
+	a.updateWindowRegion(force)
 }
 
 func (a *App) SetPanel(open bool) {
@@ -715,10 +709,15 @@ func mathRound(f float64) float64 {
 	return float64(int64(f + 0.5))
 }
 
+// 内置/半内置形象：v1 逐帧动画，gpt 是 GPT娘v1 图集。
+// pack:<id> 是下载/导入的形象包；启动时前端会检查包是否还在，不在就回落 v1。
 func validChar(s string) bool {
 	switch s {
-	case "v1", "v2", "v3", "v4", "v5", "v6", "gpt", "gpt2":
+	case "v1", "gpt":
 		return true
+	}
+	if id, ok := strings.CutPrefix(s, "pack:"); ok {
+		return packIDPattern.MatchString(id)
 	}
 	return false
 }

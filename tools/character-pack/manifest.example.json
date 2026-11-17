@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "id": "my-neko",
+  "name": "我的猫娘",
+  "version": "1.0.0",
+  "author": "你的名字",
+  "description": "自制猫娘形象包：待机、点击、吃喝、睡觉、拖拽和工作动作。",
+  "cover": "cover.webp",
+  "source": "https://example.com/my-neko",
+  "license": "CC BY-NC-SA 4.0",
+  "slots": {
+    "idle": ["待机呼吸"],
+    "click": ["点击回应-挥手", "点击回应-害羞"],
+    "feed": ["吃小鱼干"],
+    "sleep": ["原地打盹"],
+    "drag": ["被拖起来"],
+    "sad": ["垂头丧气"],
+    "happy": ["开心转圈"],
+    "work": ["敲键盘"],
+    "money": ["数金币"],
+    "move": ["小步跑"]
+  },
+  "actions": [
+    {
+      "id": "待机呼吸",
+      "category": "待机",
+      "file": "animations/idle.webm",
+      "frames": 120,
+      "fps": 24,
+      "durationMs": 5000
+    },
+    {
+      "id": "点击回应-挥手",
+      "category": "点击回应",
+      "file": "animations/click-wave.webm",
+      "frames": 48,
+      "fps": 24,
+      "durationMs": 2000
+    },
+    {
+      "id": "点击回应-害羞",
+      "category": "点击回应",
+      "file": "animations/click-shy.webm",
+      "frames": 48,
+      "fps": 24,
+      "durationMs": 2000
+    },
+    {
+      "id": "吃小鱼干",
+      "category": "吃喝",
+      "file": "animations/eat.webm",
+      "frames": 120,
+      "fps": 24,
+      "durationMs": 5000
+    },
+    {
+      "id": "原地打盹",
+      "category": "日常起居",
+      "file": "animations/sleep.webm",
+      "frames": 120,
+      "fps": 24,
+      "durationMs": 5000
+    },
+    {
+      "id": "被拖起来",
+      "category": "情绪反应",
+      "file": "animations/drag.webm",
+      "frames": 48,
+      "fps": 24,
+      "durationMs": 2000
+    },
+    {
+      "id": "垂头丧气",
+      "category": "情绪反应",
+      "file": "animations/sad.webm",
+      "frames": 72,
+      "fps": 24,
+      "durationMs": 3000
+    },
+    {
+      "id": "开心转圈",
+      "category": "情绪反应",
+      "file": "animations/happy.webm",
+      "frames": 72,
+      "fps": 24,
+      "durationMs": 3000
+    },
+    {
+      "id": "敲键盘",
+      "category": "工作职业",
+      "file": "animations/work.webm",
+      "frames": 120,
+      "fps": 24,
+      "durationMs": 5000
+    },
+    {
+      "id": "数金币",
+      "category": "余额",
+      "file": "animations/money.webm",
+      "frames": 72,
+      "fps": 24,
+      "durationMs": 3000
+    },
+    {
+      "id": "小步跑",
+      "category": "移动",
+      "file": "animations/run.webm",
+      "frames": 48,
+      "fps": 24,
+      "durationMs": 2000
+    }
+  ]
+}

@@ -95,7 +95,7 @@ def human(n):
     return f"{n/1048576:.1f} MB" if n >= 1048576 else f"{n/1024:.0f} KB"
 
 
-def convert_one(job, ffmpeg, crf, cpu_used=4, threads=0, low_prio=False, purge=False):
+def convert_one(job, ffmpeg, crf, cpu_used=4, threads=0, low_prio=False, purge=False, sharpness=0):
     """精灵图 -> 透明 WebM。alpha 必须显式开 alphamerge：libvpx 需要 -alpha_mode 1。"""
     sheet, out, meta = job
     if os.path.isfile(out) and os.path.getsize(out) > 0:
@@ -113,14 +113,16 @@ def convert_one(job, ffmpeg, crf, cpu_used=4, threads=0, low_prio=False, purge=F
         "-c:v", "libvpx-vp9", "-auto-alt-ref", "0",
         "-pix_fmt", "yuva420p", "-row-mt", "1",
         # VP9 默认是慢速"best quality"档：120 帧要十几秒，167 个动作要一个多小时。
-        # good + cpu-used 4 大约快 4-5 倍，同 CRF 下体积只大几个百分点，桌宠场景看不出差别。
+        # good + cpu-used 2 在画质/耗时之间平衡；需要更快可显式调大 --cpu-used。
         "-deadline", "good", "-cpu-used", str(cpu_used),
         "-b:v", "0", "-crf", str(crf),
         "-alpha_mode", "1", "-metadata:s:v:0", "alpha_mode=1",
-        out,
     ]
+    if sharpness:
+        cmd += ["-sharpness", str(sharpness)]
+    cmd.append(out)
     if threads:
-        cmd[-1:-1] = ["-threads", str(threads)]
+        cmd += ["-threads", str(threads)]
     flags = 0x4000 if low_prio else 0   # BELOW_NORMAL_PRIORITY_CLASS，机器不卡
     r = subprocess.run(cmd, capture_output=True, text=True, creationflags=flags)
     if purge:
@@ -159,7 +161,7 @@ def select_subset(actions, limit):
     return picked
 
 
-def convert_one_pil(job, ffmpeg, crf, cpu_used=6, threads=1, low_prio=True, purge=False):
+def convert_one_pil(job, ffmpeg, crf, cpu_used=6, threads=1, low_prio=True, purge=False, sharpness=0):
     """PIL 逐帧裁 + 裸像素管道喂 ffmpeg。
 
     源精灵图是 5120x8280 的大图，用 ffmpeg 的 crop 滤镜按 n 逐帧裁时，
@@ -186,6 +188,8 @@ def convert_one_pil(job, ffmpeg, crf, cpu_used=6, threads=1, low_prio=True, purg
         "-b:v", "0", "-crf", str(crf),
         "-alpha_mode", "1", "-metadata:s:v:0", "alpha_mode=1",
     ]
+    if sharpness:
+        cmd += ["-sharpness", str(sharpness)]
     if threads:
         cmd += ["-threads", str(threads), "-filter_threads", "1"]
     cmd.append(out)
@@ -214,7 +218,7 @@ def convert_one_pil(job, ffmpeg, crf, cpu_used=6, threads=1, low_prio=True, purg
     return out, os.path.getsize(out), False
 
 
-def build_pack(pack, out_root, crf, jobs, ffmpeg, limit=0, cpu_used=4, threads=0, low_prio=False, purge=False, encoder="pil"):
+def build_pack(pack, out_root, crf, jobs, ffmpeg, limit=0, cpu_used=4, threads=0, low_prio=False, purge=False, encoder="pil", sharpness=0):
     pid = slug_of(pack)
     pack_dir = os.path.join(out_root, pid)
     anim_dir = os.path.join(pack_dir, "animations")
@@ -249,7 +253,7 @@ def build_pack(pack, out_root, crf, jobs, ffmpeg, limit=0, cpu_used=4, threads=0
     t0 = time.time()
     with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as ex:
         fn = convert_one_pil if encoder == "pil" else convert_one
-        futs = [ex.submit(fn, (t[2], t[3], t[0]), ffmpeg, crf, cpu_used, threads, low_prio, purge) for t in todo]
+        futs = [ex.submit(fn, (t[2], t[3], t[0]), ffmpeg, crf, cpu_used, threads, low_prio, purge, sharpness) for t in todo]
         for f in concurrent.futures.as_completed(futs):
             _, size, cached = f.result()
             total += size
@@ -311,12 +315,13 @@ def main():
     ap.add_argument("--pack", action="append", help="包 id（可多次指定），默认 dsh1")
     ap.add_argument("--all", action="store_true", help="构建全部包")
     ap.add_argument("--out", default=DEFAULT_OUT)
-    ap.add_argument("--crf", type=int, default=40)
+    ap.add_argument("--crf", type=int, default=32)
     ap.add_argument("--jobs", type=int, default=6)
     ap.add_argument("--ffmpeg", default="ffmpeg")
     ap.add_argument("--limit", type=int, default=0, help="每个角色只做前 N 个动作（0=全部），用于快速出小样")
     ap.add_argument("--skip", action="append", default=[], help="跳过的包 id")
-    ap.add_argument("--cpu-used", type=int, default=4, help="VP9 速度档 0-8，越大越快")
+    ap.add_argument("--cpu-used", type=int, default=2, help="VP9 速度档 0-8，越大越快")
+    ap.add_argument("--sharpness", type=int, default=2, help="VP9 锐度 0-7；默认 2，补偿去块滤波的糊感")
     ap.add_argument("--install", action="store_true", help="构建后直接装进用户目录")
     ap.add_argument("--threads", type=int, default=0, help="每个 ffmpeg 的线程数（0=不限），配合 --jobs 控制总负载")
     ap.add_argument("--low-priority", action="store_true", help="以低优先级运行 ffmpeg，避免卡住桌面")
@@ -344,7 +349,7 @@ def main():
 
     index = []
     for p in targets:
-        index.append(build_pack(p, args.out, args.crf, args.jobs, args.ffmpeg, args.limit, args.cpu_used, args.threads, args.low_priority, args.purge, args.encoder))
+        index.append(build_pack(p, args.out, args.crf, args.jobs, args.ffmpeg, args.limit, args.cpu_used, args.threads, args.low_priority, args.purge, args.encoder, args.sharpness))
 
     idx_path = os.path.join(args.out, "characters.json")
     with open(idx_path, "w", encoding="utf-8") as f:

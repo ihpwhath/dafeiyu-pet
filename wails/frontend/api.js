@@ -241,9 +241,10 @@
     platform: 'wails',
     ready: () => whenReady(() => invoke('Ready')),
     reportPos: (pos) => {
-      if (!runtimeReady || !pos || !window.__petPosReady) return;
-      const boxes = typeof window.__petHitBoxes === 'function' ? window.__petHitBoxes() : [];
-      invoke('ReportPos', Number(pos.x) || 0, Number(pos.y) || 0, Number(pos.s) || 1, JSON.stringify(boxes)).catch(() => {});
+      if (!runtimeReady || !pos || !window.__petPosReady) return Promise.resolve();
+      const boxes = typeof window.__petHitBoxes === 'function' ? window.__petHitBoxes(!!pos.bubble) : [];
+      // force：气泡长高/首次出现时不能等 80ms 节流，否则 Region 会晚一拍，上半截被裁
+      return invoke('ReportPos', Number(pos.x) || 0, Number(pos.y) || 0, Number(pos.s) || 1, JSON.stringify(boxes), !!pos.force).catch(() => {});
     },
     setPanel: (open) => { if (!runtimeReady) return Promise.resolve(); return queueUiStrict('SetPanel', !!open); },
     powerAck: (seq) => { if (runtimeReady) invoke('PowerAck', Number(seq) || 0).catch(() => {}); },

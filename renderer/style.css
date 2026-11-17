@@ -1011,6 +1011,14 @@ body.dev-bg {
   border-radius: calc(9px * var(--fs, 1));
   background: #eef2ff;
 }
+.store-cover-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(16px * var(--fs, 1));
+  font-weight: 600;
+  color: #6f7fa8;
+}
 .store-meta { flex: 1; min-width: 0; }
 .store-meta b {
   display: -webkit-box;

@@ -77,10 +77,8 @@ func (a *App) loadState() {
 	}
 	// 旧形象 id
 	switch st["character"] {
-	case "whale1":
+	case "whale1", "whale2":
 		st["character"] = "v1"
-	case "whale2":
-		st["character"] = "v5"
 	}
 	if !validChar(str(st["character"], "v1")) {
 		st["character"] = "v1"
@@ -285,16 +283,10 @@ func (a *App) autoActionSecLocked() int {
 }
 func (a *App) charIDLocked() string {
 	v := str(a.state["character"], "v1")
-	if v == "whale1" {
+	if v == "whale1" || v == "whale2" || !validChar(v) {
 		return "v1"
 	}
-	if v == "whale2" {
-		return "v5"
-	}
-	if validChar(v) {
-		return v
-	}
-	return "v1"
+	return v
 }
 func dockLocked(s map[string]interface{}) string {
 	d := str(s["dock"], "roam")
