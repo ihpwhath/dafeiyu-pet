@@ -72,7 +72,7 @@
 | 大肥鱼 plus | 扩充包 | 167 个动作并入大肥鱼，不额外占用形象位 |
 | Claude / Gemini / GLM / GPT娘v2 / Grok / Kimi / Qwen | 逐帧动画 | 各自 92~167 个动作，按需下载 |
 
-形象包在「设置 → 形象与音效」里按需下载，支持本地 `.zip` 导入与随时卸载；Lite 版自动选择 480×270 的压缩包。安装包内置的仍然只有大肥鱼，其余素材不进安装包。自制形象包请按 [docs/形象包制作标准.md](docs/形象包制作标准.md) 打包，仓库提供校验与打包脚本：`tools/character-pack/validate.py`、`make_pack.py`。
+形象包在「设置 → 形象与音效」里按需下载，支持本地 `.zip` 导入与随时卸载；Lite 版自动选择 480×270 的压缩包。下载内置直连与多个加速镜像（ghfast、gh-proxy、ghproxy），会先探测各线路速度再选最快的，某条线路失败时自动换下一条。安装包内置的仍然只有大肥鱼，其余素材不进安装包。自制形象包请按 [docs/形象包制作标准.md](docs/形象包制作标准.md) 打包，仓库提供校验与打包脚本：`tools/character-pack/validate.py`、`make_pack.py`。
 
 非大肥鱼形象使用各自 AI 娘人设的互动文案（Claude 的规矩、Gemini 的猫娘、GLM 的狐娘、Grok 的嘴欠、Kimi 的长文本、Qwen 的大小姐），不带白饭梗和表情包，账本显示为「用量账本」。
 
