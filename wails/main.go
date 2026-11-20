@@ -19,11 +19,10 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
-	"golang.org/x/sys/windows/registry"
 )
 
 // Version 由 tools/wails-build.js 按 package.json 同步；开发期用测试版号，发布时用正式版号。
-var Version = "1.5.1"
+var Version = "1.5.2"
 
 // Variant 由构建脚本用 -ldflags 注入（full / lite）。
 var Variant = "full"
@@ -151,6 +150,7 @@ func main() {
 	if petAssets != nil {
 		cfg := app.userConfigDir()
 		_ = os.MkdirAll(filepath.Join(cfg, "characters"), 0o755)
+		_ = os.MkdirAll(filepath.Join(cfg, "fonts"), 0o755)
 		assetFS = &charactersFS{primary: petAssets, overlay: os.DirFS(cfg)}
 	}
 	err = wails.Run(&options.App{
@@ -193,7 +193,6 @@ func (a *App) startup(ctx context.Context) {
 	}
 	a.words = NewWordsFilter(lex)
 	a.loadState()
-	a.applyProcessPriority()
 	go startPowerMonitor(a)
 	a.SetupWindow()
 	go a.fullscreenLoop()
@@ -202,7 +201,7 @@ func (a *App) startup(ctx context.Context) {
 	if hasArg("--dev-debug") {
 		go startDebugServer(a)
 	}
-	a.applyLoginItem()
+	a.applyLoginItemAsync()
 	a.launchLinkedApp()
 	a.refreshUsage()
 	go func() {
@@ -432,37 +431,6 @@ func (a *App) autoActionSec() int {
 	return n
 }
 
-// 高优先级自启只在自动启动开启时生效；关闭自启后当前进程恢复普通优先级。
-func (a *App) applyProcessPriority() {
-	high := a.getBool("autoStart", false) && a.getBool("highPriority", false)
-	flag := uintptr(normalPriorityClass)
-	if high {
-		flag = highPriorityClass
-	}
-	h, _, _ := procGetCurrentProcess.Call()
-	procSetPriorityClass.Call(h, flag)
-}
-
-// applyLoginItem 写 HKCU Run；完整版与 Lite 使用各自的产品名作为注册表值名。
-func (a *App) applyLoginItem() {
-	on := a.getBool("autoStart", false)
-	const keyPath = `Software\Microsoft\Windows\CurrentVersion\Run`
-	valueName := appName()
-	k, err := registry.OpenKey(registry.CURRENT_USER, keyPath, registry.SET_VALUE)
-	if err != nil {
-		return
-	}
-	defer k.Close()
-	if on {
-		exe, err := os.Executable()
-		if err == nil {
-			_ = k.SetStringValue(valueName, `"`+exe+`"`)
-		}
-	} else {
-		_ = k.DeleteValue(valueName)
-	}
-}
-
 func (a *App) launchLinkedApp() {
 	p := strings.TrimSpace(a.getString("launchApp", ""))
 	if p == "" {
@@ -570,6 +538,7 @@ func (a *App) SaveSettings(raw string) {
 		return
 	}
 	oldSource := a.getString("ledgerSource", "qoder")
+	autoStartChanged := false
 	a.mu.Lock()
 	apply := func(key string) (interface{}, bool) {
 		v, ok := s[key]
@@ -602,19 +571,11 @@ func (a *App) SaveSettings(raw string) {
 	}
 	if v, ok := apply("autoStart"); ok {
 		if b, ok := v.(bool); ok {
+			if boolv(a.state["autoStart"], false) != b {
+				autoStartChanged = true
+			}
 			a.state["autoStart"] = b
 		}
-	}
-	if v, ok := apply("highPriority"); ok {
-		if b, ok := v.(bool); ok {
-			a.state["highPriority"] = b
-			if b {
-				a.state["autoStart"] = true
-			}
-		}
-	}
-	if !boolv(a.state["autoStart"], false) {
-		a.state["highPriority"] = false
 	}
 	if v, ok := apply("safeResume"); ok {
 		if b, ok := v.(bool); ok {
@@ -657,6 +618,11 @@ func (a *App) SaveSettings(raw string) {
 			a.state["character"] = str
 		}
 	}
+	if v, ok := apply("fontFamily"); ok {
+		if fam, ok := v.(string); ok && a.validFontFamily(fam) {
+			a.state["fontFamily"] = fam
+		}
+	}
 	if v, ok := apply("fontSize"); ok {
 		if f, ok := v.(float64); ok {
 			a.state["fontSize"] = clampF(f, 0.8, 1.4)
@@ -696,8 +662,9 @@ func (a *App) SaveSettings(raw string) {
 		}
 	}
 	a.mu.Unlock()
-	a.applyProcessPriority()
-	a.applyLoginItem()
+	if autoStartChanged {
+		a.applyLoginItem()
+	}
 	a.saveState()
 	if a.ledgerOn() {
 		a.refreshUsage()

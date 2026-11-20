@@ -104,9 +104,17 @@ type charactersFS struct {
 
 func (c *charactersFS) Open(name string) (fs.File, error) {
 	clean := strings.TrimPrefix(strings.ReplaceAll(name, "\\", "/"), "/")
-	if strings.HasPrefix(clean, "characters/") && c.overlay != nil {
-		if f, err := c.overlay.Open(clean); err == nil {
-			return f, nil
+	if c.overlay != nil {
+		if strings.HasPrefix(clean, "characters/") {
+			if f, err := c.overlay.Open(clean); err == nil {
+				return f, nil
+			}
+		}
+		// 用户导入的字体：/userfonts/x.ttf 实际读配置目录下的 fonts/x.ttf
+		if rest, ok := strings.CutPrefix(clean, "userfonts/"); ok && rest != "" && !strings.Contains(rest, "..") {
+			if f, err := c.overlay.Open("fonts/" + rest); err == nil {
+				return f, nil
+			}
 		}
 	}
 	return c.primary.Open(name)

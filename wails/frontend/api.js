@@ -253,6 +253,8 @@
     updateStats: (s) => { if (s) invoke('UpdateStats', Number(s.satiety) || 0, Number(s.mood) || 0).catch(() => {}); },
     saveSettings: (s) => queueSave(JSON.stringify(s || {})),
     pickApp: () => invoke('PickApp'),
+    importFont: () => invoke('ImportFont'),
+    autostartStatus: () => invoke('AutostartStatus'),
     checkUpdate: () => invoke('CheckUpdate'),
     downloadUpdate: (mode) => invoke('DownloadUpdate', mode || 'direct'),
     installUpdate: () => invoke('InstallUpdate'),

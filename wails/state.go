@@ -21,12 +21,12 @@ func defaultState() map[string]interface{} {
 		"pomoAnimSec":     5,
 		"ledger":          true,
 		"autoStart":       false,
-		"highPriority":    false,
 		"safeResume":      true,
 		"fullscreenHide":  true,
 		"memeOrder":       "queue",
 		"launchApp":       "",
 		"character":       "v1",
+		"fontFamily":      "soft",
 		"fontSize":        1,
 		"sfx":             "default",
 		"autoActionSec":   40,
@@ -68,6 +68,8 @@ func (a *App) loadState() {
 			}
 		}
 	}
+	// 旧版「高优先级自启」已移除，统一普通优先级
+	delete(st, "highPriority")
 	// 一次性迁移：旧默认尺寸 100% → 85%
 	if _, ok := st["scale85"].(bool); !ok {
 		if f, ok := st["scale"].(float64); !ok || (f > 0 && f < 1.0001 && f > 0.9999) {
@@ -162,10 +164,10 @@ func (a *App) petStatus() map[string]interface{} {
 		"pomoAnimSec":    a.pomoAnimSecLocked(),
 		"ledger":         a.ledgerOnLocked(),
 		"autoStart":      boolv(s["autoStart"], false),
-		"highPriority":   boolv(s["highPriority"], false) && boolv(s["autoStart"], false),
 		"safeResume":     boolv(s["safeResume"], true),
 		"launchApp":      str(s["launchApp"], ""),
 		"character":      a.charIDLocked(),
+		"fontFamily":     a.fontFamilyLocked(s),
 		"fontSize":       clampF(numOr(s["fontSize"], 1), 0.8, 1.4),
 		"sfx":            sfxLocked(s),
 		"autoActionSec":  a.autoActionSecLocked(),
@@ -209,6 +211,15 @@ func (a *App) petStatus() map[string]interface{} {
 		"apiKeys":  a.apiKeysConfigured(),
 		"ledger":   ledgerOut,
 	}
+}
+
+// 内置字体名或 custom:<文件名>；自定义字体文件被删掉时回落到默认软糖体。
+func (a *App) fontFamilyLocked(s map[string]interface{}) string {
+	v := strv(s["fontFamily"], "soft")
+	if a.validFontFamily(v) {
+		return v
+	}
+	return "soft"
 }
 
 func numOr(v interface{}, def float64) float64 {

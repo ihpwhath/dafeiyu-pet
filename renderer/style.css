@@ -8,6 +8,35 @@
   box-sizing: border-box;
 }
 
+html {
+  --font-ui: "ShouShou", "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+}
+
+/* 软糖体只有 Regular，字形又圆；禁用合成粗体，避免假粗体把笔画糊成一团 */
+html[data-font="soft"] {
+  font-synthesis: none;
+}
+
+html[data-font="yahei"] {
+  --font-ui: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+}
+
+html[data-font="dengxian"] {
+  --font-ui: "DengXian", "等线", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
+}
+
+html[data-font="kaiti"] {
+  --font-ui: "KaiTi", "楷体", "STKaiti", "Microsoft YaHei UI", system-ui, sans-serif;
+}
+
+html[data-font="simsun"] {
+  --font-ui: "SimSun", "宋体", "NSimSun", "Microsoft YaHei UI", system-ui, sans-serif;
+}
+
+html[data-font="custom"] {
+  --font-ui: "UserFont", "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+}
+
 html,
 body {
   margin: 0;
@@ -15,7 +44,7 @@ body {
   height: 100%;
   overflow: hidden;
   background: transparent;
-  font-family: "ShouShou", "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+  font-family: var(--font-ui);
   user-select: none;
   -webkit-user-select: none;
   cursor: default;
@@ -36,7 +65,8 @@ body.dev-bg {
 
 /* ---------------------------------------------------------------- 角色 */
 
-/* #pet 是整个桌宠的包围盒，位置由渲染层的移动引擎用 transform 驱动 */
+/* #pet 是整个桌宠的包围盒，位置由渲染层的移动引擎用 transform 驱动。
+   初始 P 是 (0,0)，要等主进程 init 把位置/角色准备好再显示，否则首帧会在左上角闪一下。 */
 #pet {
   position: absolute;
   left: 0;
@@ -44,16 +74,20 @@ body.dev-bg {
   width: 300px;
   height: 352px;
   will-change: transform;
+  visibility: hidden;
 }
 
-/* 尺寸缩放层：从左上角整体缩放，坐标换算只需乘比例 */
+body.pet-ready #pet {
+  visibility: visible;
+}
+
+/* 尺寸缩放层：用 zoom 从左上角整体缩放（文字按最终字号排版，不发虚） */
 #scale {
   position: absolute;
   left: 0;
   top: 0;
   width: 300px;
   height: 352px;
-  transform-origin: 0 0;
 }
 
 /* 动画画布：640×360 的 16:9，角色居中约占 226×282（素材四周透明） */
@@ -303,7 +337,7 @@ body.dev-bg {
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.97);
   color: #1e2a52;
-  font-size: calc(14px * var(--fs, 1));
+  font-size: calc(15px * var(--fs, 1));
   line-height: 1.5;
   text-align: center;
   box-shadow: 0 8px 22px rgba(18, 32, 86, 0.3), 0 0 0 1px rgba(120, 150, 255, 0.22);
@@ -452,7 +486,7 @@ body.dev-bg {
 }
 
 .u-note {
-  font-size: 0.75em;
+  font-size: 0.8em;
   color: #97a2c4;
   text-align: center;
 }
@@ -732,7 +766,7 @@ body.dev-bg {
 
 .set-title {
   margin: 0 0 9px;
-  font-size: calc(14.5px * var(--fs, 1))14.5px;
+  font-size: calc(14.5px * var(--fs, 1));
   font-weight: 700;
 }
 
@@ -742,7 +776,7 @@ body.dev-bg {
 
 .set-label {
   margin-bottom: 6px;
-  font-size: calc(12px * var(--fs, 1))12px;
+  font-size: calc(12px * var(--fs, 1));
   color: #5b688f;
 }
 
@@ -760,7 +794,19 @@ body.dev-bg {
   margin-top: 6px;
 }
 
+.set-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.set-grid + .set-row,
+.set-row + .set-grid {
+  margin-top: 6px;
+}
+
 .set-row button,
+.set-grid button,
 .set-foot button {
   flex: 1;
   padding: calc(6px * var(--fs, 1)) 0;
@@ -774,25 +820,27 @@ body.dev-bg {
 }
 
 .set-row button:hover,
+.set-grid button:hover,
 .set-foot button:hover {
   background: #eaefff;
 }
 
-.set-row button.on {
+.set-row button.on,
+.set-grid button.on {
   border-color: #4d6bfe;
   background: #4d6bfe;
   color: #fff;
 }
 
 .set-help {
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.8;
   color: #5b688f;
 }
 
 .set-hint {
   margin-top: 5px;
-  font-size: 10.5px;
+  font-size: 11.5px;
   line-height: 1.5;
   color: #97a2c4;
 }
@@ -864,7 +912,7 @@ body.dev-bg {
 
 .pick-hint {
   margin: -2px 0 8px;
-  font-size: calc(11px * var(--fs, 1));
+  font-size: calc(11.5px * var(--fs, 1));
   line-height: 1.5;
   color: #7b86ad;
 }
@@ -954,7 +1002,7 @@ body.dev-bg {
   background: #4d6bfe;
   color: #fff;
   font: inherit;
-  font-size: calc(12.5px * var(--fs, 1))12.5px;
+  font-size: calc(12.5px * var(--fs, 1));
   cursor: pointer;
 }
 
@@ -970,7 +1018,7 @@ body.dev-bg {
   border-radius: 8px;
   background: #fff4f2;
   color: #b4453a;
-  font-size: 10.5px;
+  font-size: 11.5px;
   line-height: 1.55;
 }
 

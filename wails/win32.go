@@ -49,11 +49,9 @@ const (
 	spiGetWorkArea   = 0x0030
 	rgnOr            = 2
 
-	normalPriorityClass = 0x00000020
-	highPriorityClass   = 0x00000080
-	smtoBlock           = 0x0001
-	smtoAbortIfHung     = 0x0002
-	wmNull              = 0x0000
+	smtoBlock       = 0x0001
+	smtoAbortIfHung = 0x0002
+	wmNull          = 0x0000
 
 	// SetWindowCompositionAttribute 的 AccentPolicy（未文档化，Win10 起可用）
 	wcaAccentPolicy        = 19
@@ -98,8 +96,6 @@ var (
 	procCombineRgn               = gdi32.NewProc("CombineRgn")
 	procDeleteObject             = gdi32.NewProc("DeleteObject")
 	procCreateMutexW             = kernel32.NewProc("CreateMutexW")
-	procGetCurrentProcess        = kernel32.NewProc("GetCurrentProcess")
-	procSetPriorityClass         = kernel32.NewProc("SetPriorityClass")
 	procLocalFree                = kernel32.NewProc("LocalFree")
 	procCryptProtectData         = crypt32.NewProc("CryptProtectData")
 	procCryptUnprotectData       = crypt32.NewProc("CryptUnprotectData")

@@ -79,6 +79,8 @@ const setSizes = document.getElementById('set-sizes');
 const setDocks = document.getElementById('set-docks');
 const setSizeVal = document.getElementById('set-size-val');
 const setFontVal = document.getElementById('set-font-val');
+const setFonts = document.getElementById('set-fonts');
+const setFontHint = document.getElementById('font-hint');
 const setSfx = document.getElementById('set-sfx');
 const setMemeOrder = document.getElementById('set-meme-order');
 const setLedgerSrc = document.getElementById('set-ledger-src');
@@ -100,6 +102,7 @@ const setPomoAnimVal = document.getElementById('set-pomo-anim-val');
 const setPomoAnimPresets = document.getElementById('set-pomo-anim-presets');
 const setLedger = document.getElementById('set-ledger');
 const setAutoStart = document.getElementById('set-autostart');
+const setAutoStartHint = document.getElementById('autostart-hint');
 const setSafeResume = document.getElementById('set-safe-resume');
 const setFullscreenHide = document.getElementById('set-fullscreen-hide');
 const setAppName = document.getElementById('set-app-name');
@@ -405,12 +408,12 @@ const S = {
   awake: true,
   ledgerOn: true,
   autoStart: false,
-  highPriority: false,
   safeResume: true,
   fullscreenHide: true,
   memeOrder: 'queue',
   launchApp: '',
   character: 'v1',
+  fontFamily: 'soft',
   fontScale: 1,
   sfx: 'default',
   autoActionSec: 40,
@@ -490,6 +493,12 @@ function mockApi() {
     editWords() {},
     pickApp() {
       return Promise.resolve(null);
+    },
+    importFont() {
+      return Promise.resolve(null);
+    },
+    autostartStatus() {
+      return Promise.resolve({ enabled: true, task: true });
     },
     quit() {},
     on() {
@@ -658,6 +667,21 @@ function frame(now) {
   }
   requestAnimationFrame(frame);
 }
+
+// 首帧隐藏到 init 把位置和形象都设好再显示，避免先画在 (0,0) 再跳到目标位置。
+let petRevealTimer = 0;
+function markPetReady() {
+  if (document.body.classList.contains('pet-ready')) return;
+  if (petRevealTimer) {
+    clearTimeout(petRevealTimer);
+    petRevealTimer = 0;
+  }
+  lastTransform = '';
+  petEl.style.transform = `translate3d(${P.x.toFixed(1)}px, ${P.y.toFixed(1)}px, 0)`;
+  document.body.classList.add('pet-ready');
+}
+// 纯浏览器预览没有 init 事件，兜底显示；正式 Wails 环境只等 init。
+if (!window.__wails) petRevealTimer = setTimeout(markPetReady, 1200);
 
 function clampInBounds() {
   const b = bounds();
@@ -2318,12 +2342,12 @@ function saveSettings() {
     pomoAnimSec: S.pomoAnimSec,
     ledger: S.ledgerOn,
     autoStart: S.autoStart,
-    highPriority: S.highPriority,
     safeResume: S.safeResume,
     fullscreenHide: S.fullscreenHide,
     memeOrder: S.memeOrder,
     launchApp: S.launchApp,
     character: S.character,
+    fontFamily: S.fontFamily,
     fontSize: S.fontScale,
     sfx: S.sfx,
     autoActionSec: S.autoActionSec,
@@ -2341,6 +2365,11 @@ function syncSettingsUI() {
     btn.classList.toggle('on', Math.abs(Number(btn.dataset.size) - petScale) < 0.001);
   }
   setFontVal.textContent = `${Math.round(S.fontScale * 100)}%`;
+  if (setFonts) {
+    for (const btn of setFonts.querySelectorAll('button')) {
+      btn.classList.toggle('on', btn.dataset.font === S.fontFamily);
+    }
+  }
   for (const btn of setSfx.querySelectorAll('button')) {
     btn.classList.toggle('on', btn.dataset.sfx === S.sfx);
   }
@@ -2367,9 +2396,8 @@ function syncSettingsUI() {
   for (const btn of setLedger.querySelectorAll('button')) {
     btn.classList.toggle('on', (btn.dataset.ledger === '1') === S.ledgerOn);
   }
-  const startupMode = !S.autoStart ? '0' : (S.highPriority ? 'high' : 'normal');
   for (const btn of setAutoStart.querySelectorAll('button')) {
-    btn.classList.toggle('on', btn.dataset.autostart === startupMode);
+    btn.classList.toggle('on', (btn.dataset.autostart === '1') === S.autoStart);
   }
   if (setSafeResume) {
     for (const btn of setSafeResume.querySelectorAll('button')) {
@@ -2413,7 +2441,9 @@ function applyLedgerUI() {
 function applyScale(s, save) {
   const v = Number(s);
   petScale = clamp(Math.round((Number.isFinite(v) && v > 0 ? v : DEFAULT_SCALE) / SIZE_STEP) * SIZE_STEP, SIZE_MIN, SIZE_MAX);
-  scaleEl.style.transform = Math.abs(petScale - 1) < 0.001 ? '' : `scale(${petScale.toFixed(2)})`;
+  // 用 zoom 而不是 transform: scale：zoom 在排版阶段按最终字号生成字形，
+  // 气泡里的文字不会被「先按 100% 字号画好再缩小」而发虚。
+  scaleEl.style.zoom = Math.abs(petScale - 1) < 0.001 ? '' : petScale.toFixed(2);
   syncSettingsUI();
   clampInBounds();
   api.reportPos({ x: Math.round(P.x), y: Math.round(P.y), s: petScale });
@@ -2470,13 +2500,26 @@ function applyAutoUpdate(on, save) {
   if (save) saveSettings();
 }
 
-function applyAutoStart(mode, save) {
-  const high = mode === 'high';
-  const normal = mode === 'normal' || mode === '1';
-  S.autoStart = high || normal;
-  S.highPriority = high;
+function refreshAutostartHint() {
+  if (!setAutoStartHint || typeof api.autostartStatus !== 'function') return;
+  Promise.resolve()
+    .then(() => api.autostartStatus())
+    .then((s) => {
+      if (!s || !setAutoStartHint) return;
+      if (!s.enabled) setAutoStartHint.textContent = '已关闭：登录 Windows 时不会自动启动。';
+      else if (s.task) setAutoStartHint.textContent = '已开启：登录时由计划任务启动，无延迟。';
+      else setAutoStartHint.textContent = '已开启，但系统里没有找到计划任务；请再点一次「开启」重建。';
+    })
+    .catch(() => {});
+}
+
+function applyAutoStart(on, save) {
+  S.autoStart = on === true || on === '1' || on === 1;
   syncSettingsUI();
-  if (save) saveSettings();
+  if (save) {
+    saveSettings();
+    setTimeout(refreshAutostartHint, 900);
+  }
 }
 
 function applySafeResume(on, save) {
@@ -2695,6 +2738,70 @@ function applyAutoActionSec(v, save) {
   if (save) saveSettings();
 }
 
+// 内置字体走系统字体（不占安装包），自定义字体由 Go 端复制到配置目录后经 /userfonts/ 提供。
+const FONT_PRESETS = ['soft', 'yahei', 'dengxian', 'kaiti', 'simsun'];
+const customFontName = (fam) => (typeof fam === 'string' && fam.startsWith('custom:') ? fam.slice(7) : '');
+
+function setCustomFontFace(file) {
+  let style = document.getElementById('user-font-face');
+  if (!style) {
+    style = document.createElement('style');
+    style.id = 'user-font-face';
+    document.head.appendChild(style);
+  }
+  style.textContent = `@font-face{font-family:"UserFont";src:url("/userfonts/${encodeURIComponent(file)}");font-display:swap;}`;
+}
+
+function updateFontHint() {
+  if (!setFontHint) return;
+  const name = customFontName(S.fontFamily);
+  setFontHint.textContent = name
+    ? `当前：${name}（自定义），重新导入会替换。`
+    : '支持 .ttf / .otf / .woff / .woff2；看不清时建议换「雅黑」并把字体大小调大。';
+}
+
+function applyFontFamily(v, save) {
+  const raw = typeof v === 'string' ? v : 'soft';
+  const custom = customFontName(raw);
+  const fam = custom ? 'custom' : FONT_PRESETS.includes(raw) ? raw : 'soft';
+  S.fontFamily = custom ? raw : fam;
+  if (custom) {
+    setCustomFontFace(custom);
+    if (document.fonts && document.fonts.load) {
+      document.fonts.load('16px "UserFont"', '你好呀蓝色大肥鱼0123456789').catch(() => {});
+    }
+  }
+  document.documentElement.dataset.font = fam;
+  updateFontHint();
+  syncSettingsUI();
+  if (save) {
+    saveSettings();
+    if (bubbleEl.classList.contains('show')) {
+      requestAnimationFrame(() => {
+        positionBubble();
+        reportRegionNow(true);
+      });
+    }
+  }
+}
+
+function importFont() {
+  if (typeof api.importFont !== 'function') return;
+  const btn = document.getElementById('font-import');
+  if (btn) btn.disabled = true;
+  Promise.resolve()
+    .then(() => api.importFont())
+    .then((name) => {
+      if (name) applyFontFamily(`custom:${name}`, true);
+    })
+    .catch(() => {
+      if (setFontHint) setFontHint.textContent = '导入失败：请选择 .ttf / .otf / .woff / .woff2 字体文件，且不超过 40 MB。';
+    })
+    .finally(() => {
+      if (btn) btn.disabled = false;
+    });
+}
+
 // 气泡字体大小（0.8×~1.4×，只影响气泡里的文字）
 function applyFontSize(v, save) {
   const n = Number(v);
@@ -2795,6 +2902,7 @@ function openSetPage(id) {
   setHome.classList.add('hide');
   for (const pg of setPages) pg.classList.toggle('hide', pg.dataset.page !== id);
   if (id === 'words') syncWordsUI();
+  if (id === 'startup') refreshAutostartHint();
   const body = settingsEl.querySelector('.set-body');
   if (body) body.scrollTop = 0;
   positionSettings();
@@ -2890,11 +2998,13 @@ settingsEl.addEventListener('click', (e) => {
   else if (btn.id === 'size-plus') applyScale(petScale + SIZE_STEP, true);
   else if (btn.id === 'font-minus') applyFontSize(S.fontScale - FONT_STEP, true);
   else if (btn.id === 'font-plus') applyFontSize(S.fontScale + FONT_STEP, true);
+  else if (btn.dataset.font) applyFontFamily(btn.dataset.font, true);
+  else if (btn.id === 'font-import') importFont();
   else if (btn.dataset.sfx) applySfx(btn.dataset.sfx, true);
   else if (btn.id === 'auto-minus') applyAutoActionSec(S.autoActionSec - AUTO_STEP, true);
   else if (btn.id === 'auto-plus') applyAutoActionSec(S.autoActionSec + AUTO_STEP, true);
   else if (btn.dataset.ledger) applyLedger(btn.dataset.ledger === '1', true);
-  else if (btn.dataset.autostart) applyAutoStart(btn.dataset.autostart, true);
+  else if (btn.dataset.autostart !== undefined) applyAutoStart(btn.dataset.autostart === '1', true);
   else if (btn.dataset.saferesume) applySafeResume(btn.dataset.saferesume === '1', true);
   else if (btn.dataset.fullscreenhide) applyFullscreenHide(btn.dataset.fullscreenhide === '1', true);
   else if (btn.dataset.memeorder) applyMemeOrder(btn.dataset.memeorder, true);
@@ -3395,11 +3505,11 @@ api.on('init', (st) => {
   const set = st.settings || {};
   S.ledgerOn = set.ledger !== false;
   S.autoStart = !!set.autoStart;
-  S.highPriority = !!set.highPriority && S.autoStart;
   S.safeResume = set.safeResume !== false;
   S.fullscreenHide = set.fullscreenHide !== false;
   S.memeOrder = set.memeOrder === 'random' ? 'random' : 'queue';
   S.launchApp = typeof set.launchApp === 'string' ? set.launchApp : '';
+  applyFontFamily(set.fontFamily, false);
   applyLedgerUI();
   // 形象包要读磁盘、是异步的：先按内置形象起来，读完再把保存的包形象应用回去。
   // 不要在包装好前就按包路径加载，否则 gpt 图集会先 404 一次（表现为闪一下空白）。
@@ -3458,11 +3568,17 @@ api.on('init', (st) => {
   applyDock(set.dock, false);
   // 初始化完成前不上报位置，避免把游戏开始前的 (0,0) 写进状态
   window.__petPosReady = true;
-  api.reportPos({ x: Math.round(P.x), y: Math.round(P.y), s: petScale });
+  const firstReport = api.reportPos({ x: Math.round(P.x), y: Math.round(P.y), s: petScale, force: true });
+  Promise.resolve(firstReport).then(
+    () => requestAnimationFrame(markPetReady),
+    () => requestAnimationFrame(markPetReady),
+  );
+  setTimeout(markPetReady, 1500); // Region 上报异常时也不能一直藏着
   applyHungry();
   applyDoze();
   applyBase();
   syncSettingsUI();
+  refreshAutostartHint();
 });
 
 api.on('power-resume', (p) => {

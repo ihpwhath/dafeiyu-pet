@@ -131,6 +131,20 @@
           </div>
         </div>
         <div class="set-sec">
+          <div class="set-label">字体</div>
+          <div class="set-grid" id="set-fonts">
+            <button data-font="soft">软糖体</button>
+            <button data-font="yahei">雅黑</button>
+            <button data-font="dengxian">等线</button>
+            <button data-font="kaiti">楷体</button>
+            <button data-font="simsun">宋体</button>
+          </div>
+          <div class="set-row">
+            <button id="font-import">导入自定义字体…</button>
+          </div>
+          <div class="set-hint" id="font-hint">支持 .ttf / .otf / .woff / .woff2；看不清时建议换「雅黑」并把字体大小调大。</div>
+        </div>
+        <div class="set-sec">
           <div class="set-label">字体大小 <b id="set-font-val">100%</b></div>
           <div class="set-row">
             <button id="font-minus">− 缩小 5%</button>
@@ -249,10 +263,9 @@
           <div class="set-label">开机自启动</div>
           <div class="set-row" id="set-autostart">
             <button data-autostart="0">关闭</button>
-            <button data-autostart="normal">普通自启</button>
-            <button data-autostart="high">高优先级自启</button>
+            <button data-autostart="1">开启</button>
           </div>
-          <div class="set-hint">高优先级自启会让桌宠以 Windows 高进程优先级运行，系统繁忙时更不容易卡顿，但可能影响其他前台程序的响应。</div>
+          <div class="set-hint" id="autostart-hint">登录 Windows 时通过无延迟的计划任务自动启动；关闭后会删除该计划任务。</div>
         </div>
         <div class="set-sec">
           <div class="set-label">休眠/睡眠恢复</div>
